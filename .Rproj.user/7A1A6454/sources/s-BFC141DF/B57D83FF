@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1587715659771.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3488131423",
+    "id" : "B57D83FF",
+    "lastKnownWriteTime" : 1587716085,
+    "last_content_update" : 1587716085299,
+    "path" : "~/R-Code/M5-Forecasting/main.R",
+    "project_path" : "main.R",
+    "properties" : {
+        "cursorPosition" : "14,0",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

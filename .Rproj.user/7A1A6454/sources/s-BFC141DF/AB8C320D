@@ -1,0 +1,33 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1587716025422.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "AB8C320D",
+    "lastKnownWriteTime" : 3180141919958494821,
+    "last_content_update" : 1587716025422,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "476788B2",
+        "caption" : "sell_prices",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=sell_prices&cache_key=476788B2",
+        "displayedObservations" : 6841121,
+        "environment" : "",
+        "expression" : "sell_prices",
+        "object" : "sell_prices",
+        "preview" : 0,
+        "totalObservations" : 6841121,
+        "variables" : 4
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}
