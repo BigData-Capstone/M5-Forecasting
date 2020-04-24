@@ -2,7 +2,8 @@
 # M5 - Forecasting
 # Link zur Challenge: https://www.kaggle.com/c/m5-forecasting-accuracy
 
-
+# to save the current RData to the .RData
+save.image("~/R-Code/M5-Forecasting/.RData")
 
 ## Importing the Data
 #####################################################################
