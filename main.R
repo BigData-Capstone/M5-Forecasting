@@ -25,6 +25,6 @@ sell_prices = read_csv("input/sell_prices.csv")
 #####################################################################
 library(rmarkdown)
 library(knitr)
-render("Capstone-Notebook.Rmd",
-       output_format = "html_document",
-       output_file = "Capstone.html")
+render("main.Rmd",
+      output_format = "html_document",
+      output_file = "Capstone.html")
