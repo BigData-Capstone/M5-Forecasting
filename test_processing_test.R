@@ -2,8 +2,10 @@
 library(tidyverse)
 library(data.table)
 library(RcppRoll)
-devtools::install_url('https://github.com/catboost/catboost/releases/download/v0.22/catboost-R-Linux-0.22.tgz', INSTALL_opts = c("--no-multiarch"))
+devtools::install_github('catboost/catboost', subdir = 'catboost/R-package')
 library(catboost)
+
+library(lightgbm)
 
 #garbage collector for training as a lot of memory is used
 free <- function() invisible(gc())
