@@ -5,7 +5,7 @@
 # to save the current RData to the .RData
 save.image("~/R-Code/M5-Forecasting/.RData")
 
-
+kjh
 
 #####################################################################
 ## OSEMN Pipeline in Data Science
