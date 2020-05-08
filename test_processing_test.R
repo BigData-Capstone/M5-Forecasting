@@ -96,12 +96,48 @@ train <- train %>%
 
 #decrease memory usage
 free()
+#export csv for Tableau here -> Drop first 1000 has to be eliminated
 
 #introduce the additional features
 train <- train %>%
   demand_features() %>% 
   filter(d >= FIRST_PREDICTION_DAY | !is.na(roll_lag28_w28))
 
+#decrease memory usage
+free()
+
+#naive classification metrics
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#machine learning approach
 
 # Response and features
 y <- "demand"

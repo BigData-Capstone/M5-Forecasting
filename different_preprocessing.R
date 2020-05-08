@@ -34,12 +34,12 @@ train <- train %>%
   row_to_names(row_number = 1)
 
 
-
+View(train)
 #create test dataframe
 new_train = train[,9]
 
 new_train <- as.numeric(new_train)
-new_train <- as.data.frame(new_train)
+new_train <- as.data.table(new_train)
 str(new_train)
 #add features
 new_train$date = calendar$date[1:1913]
@@ -66,12 +66,14 @@ train_product = new_train[-index,]
 test_product = new_train[index,]
 
 str(train_product)
+
+
 ### Naive Forecast & Evaluation Workbench
 ###########################################
 
 train_product_ts = ts(train_product$quantity, frequency = 7)
 forecast = naive(train_product_ts, h = 7)
-tail(train_product$new_train,1)
+tail(train_product$quantity,1)
 
 autoplot(forecast, PI = FALSE)
 
@@ -81,19 +83,33 @@ RMSE=function(actual, predicted){
   return(rmse)
 }
 
-View(test_product)
-actual = test_product[13,,]$quantity
-actual
-
-for (w in unique(test_product$week)){
+# walkforward validation
+walkforward_evaluation = function(train_product, test_product){
   
+  history = train_product
+  performance_collector = c()
   
+  for (w in unique(test_product$week)){
+    #create time series of history
+    history_ts = ts(history$quantity, frequency = 7)
+    
+    #make forecast and assess RMSE
+    predicted = naive(history_ts, h = 7)$mean
+    actual = test_product[week == w,,]$quantity
+    performance = RMSE(actual, predicted)
+    
+    # update history and collect performance
+    history = rbind(history, test_product[week == w,,])
+    performance_collector = c(performance_collector, performance)
+  }
+  
+  return(performance_collector)
 }
 
-
 naive_error = walkforward_evaluation(train_product, test_product)
-naive_error
 mean(naive_error)
+
+
 
 
 
