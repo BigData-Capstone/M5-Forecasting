@@ -17,14 +17,23 @@ FIRST_PREDICTION_DAY <- 1914
 LENGTH_PREDICTION <- 28  
 
 #Import the data
+#special events like the superbowl are dropped
 calendar <- fread("calendar.csv", stringsAsFactors = TRUE, 
                   drop = c("date", "weekday", "event_type_1", "event_type_2"))
 #drop first 1000 for conserving memory
 train <- fread("sales_train_validation.csv", stringsAsFactors = TRUE, drop = paste0("d_", 1:1000))
 prices <- fread("sell_prices.csv", stringsAsFactors = TRUE)
                 
+#get an overview of the data
 #show dimensions
+dim(calendar)
 dim(train)
+dim(prices)
+
+#take a closer look at the data
+View(train)
+View(prices)
+View(calendar)
 
 
 
@@ -54,28 +63,46 @@ free()
 # Fill in blank values for prediction after the last day of data
 train[, paste0("d_", FIRST_PREDICTION_DAY:(FIRST_PREDICTION_DAY + 2 * LENGTH_PREDICTION - 1))] <- NA
 free()
+
+#clean and transpose the data
 train <- train %>% 
   #eliminate validation to save memory
   mutate(id = gsub("_validation", "", id)) %>% 
   #transpose the data to create a better overview
   gather("d", "demand", -id, -item_id, -dept_id, -cat_id, -store_id, -state_id) %>% 
-  #what does it do?
-  d2int() %>% 
-  #merge the dataset
-  left_join(calendar %>% d2int(), by = "d") %>% 
-  left_join(prices, by = c("store_id", "item_id", "wm_yr_wk"))  %>%
-  # what does it do?
-  select(-wm_yr_wk) %>% 
-  #convert various variables
-  mutate(demand = as.numeric(demand)) %>% 
-  mutate_if(is.factor, as.integer) %>% 
-  #calculate lag
-  demand_features() %>% 
-  #lag cannot calculated for the last variables
-  filter(d >= FIRST_PREDICTION_DAY | !is.na(roll_lag28_w28))
-  
+  #convert the day value (e.g. d_1) to an integer for every row of the
+  d2int()
 
-head(train,100)
+#decrease memory usage
+free()
+  
+#merge the two other files
+train <- train %>%
+  #merge the calendar
+  left_join(calendar %>% d2int(), by = "d") %>% 
+  #merge the prices
+  left_join(prices, by = c("store_id", "item_id", "wm_yr_wk"))
+
+#decrease memory usage
+free()
+
+#
+train <- train %>%
+  #drop this column as it does not contain additional information
+  select(-wm_yr_wk) %>% 
+  #convert data into numerics and integers
+  mutate(demand = as.numeric(demand)) %>% 
+  mutate_if(is.factor, as.integer) 
+
+#decrease memory usage
+free()
+
+#introduce the additional features
+train <- train %>%
+  demand_features() %>% 
+  filter(d >= FIRST_PREDICTION_DAY | !is.na(roll_lag28_w28))
+
+
 # Response and features
 y <- "demand"
 x <- setdiff(colnames(train), c(y, "d", "id"))
