@@ -130,7 +130,7 @@ calendar$wm_yr_wk = as.integer(calendar$wm_yr_wk)
 
 
 #preparation for looping through the data
-iterations = 5
+iterations = 100
 variables = 3
 
 results_matrix <- matrix(ncol=variables, nrow=iterations)
@@ -171,6 +171,9 @@ while(i <= iterations){
   
   #free memory
   free()
+  #give an overview of progress
+  print(i)
+  #increment i
   i=i+1
 }
 
