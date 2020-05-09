@@ -175,3 +175,6 @@ while(i <= iterations){
 }
 
 View(results_matrix)
+mean(results_matrix[,1])
+mean(results_matrix[,2])
+mean(results_matrix[,3])
