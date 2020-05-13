@@ -139,11 +139,13 @@ View(dataset)
 free()
 
 #filter only the items of store CA_3
-dataset = filter(dataset, store_id == "CA_3")
+#dataset = filter(dataset, store_id == "CA_3")
 
 #drop un-nessecary colums store id state id
 dataset = select(dataset, -store_id)
 dataset = select(dataset, -state_id)
+dataset = select(dataset, -cat_id)
+dataset = select(dataset, -dept_id)
 
 #convert item id into numeric format
 dataset$item_id = as.integer(dataset$item_id)
@@ -151,21 +153,19 @@ dataset$id = as.integer(dataset$id)
 
 
 #Encode category and departement id as dummy variables
-dataset$cat_id = one_hot(as.data.table(dataset$cat_id))
-dataset$dept_id = one_hot(as.data.table(dataset$dept_id))
+#dataset$cat_id = one_hot(as.data.table(dataset$cat_id))
+#dataset$dept_id = one_hot(as.data.table(dataset$dept_id))
 
 #clear memory
 free()
 
 #split the training data
-train_dataset = filter(dataset, d <= test_index)
-test_dataset = filter(dataset, d > test_index)
-
+train_dataset = filter(dataset, d < 1886)
+test_dataset = filter(dataset, d >= 1886)
 #Assign label
 train_label <- train_dataset$demand
 test_label <- test_dataset$demand
 
-View(x_train)
 
 #remove label from dataset
 train_dataset = select(train_dataset, -demand)
