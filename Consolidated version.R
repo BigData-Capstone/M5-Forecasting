@@ -29,6 +29,10 @@ sales_train_validation.csv <- fread("sales_train_validation.csv", stringsAsFacto
 calendar.csv <- fread("calendar.csv", stringsAsFactors = TRUE)
 sell_prices.csv <- fread("sell_prices.csv", stringsAsFactors = TRUE)
 
+###########################################################################################
+### Creating simple dataset
+###########################################################################################
+
 #create simple dataset
 #create simple (for naive, snaive and arima) 
 #do some data wrangling
@@ -61,8 +65,14 @@ simple_dataset <- simple_dataset %>%
 
 simple_dataset = simple_dataset[-c(1:1430),]
 
+#create training data for simple_dataset -> Last 28 days should be predicted
+index = tail(1:nrow(simple_dataset),28)
+train_simple = simple_dataset[-index,]
+test_simple = simple_dataset[index,]
 
-
+###########################################################################################
+### Creating complex dataset
+###########################################################################################
 
 #create complex dataset
 dataset <- data.table::melt.data.table(
@@ -174,7 +184,7 @@ free()
 
 #filter only the items of store CA_3
 dataset = filter(dataset, store_id == "CA_3")
-
+View(dataset)
 #drop un-nessecary colums store_id & state id & id
 dataset = select(dataset, -store_id)
 dataset = select(dataset, -state_id)
@@ -182,38 +192,68 @@ dataset = select(dataset, -state_id)
 #clear memory again
 free()
 
-#create training data for simple_dataset -> Last 28 days should be predicted
-index = tail(1:nrow(simple_dataset),28)
-train_simple = simple_dataset[-index,]
-test_simple = simple_dataset[index,]
-View(test_simple)
-
 #create training for the more complex dataset
 #create a list of all the items
 item_id <- data.frame(dataset$item_id)
 item_id <- unique(item_id)
 
 #Encode category and departement id as dummy variables
-dataset$cat_id = one_hot(as.data.table(dataset$cat_id))
-dataset$dept_id = one_hot(as.data.table(dataset$dept_id))
+#dataset$cat_id = one_hot(as.data.table(dataset$cat_id))
+#dataset$dept_id = one_hot(as.data.table(dataset$dept_id))
 
+View(dataset)
 #split the training data
-train_dataset = filter(dataset, d <= test_index)
-test_dataset = filter(dataset, d > test_index)
+train_dataset = filter(dataset, d < 1886)
+test_dataset = filter(dataset, d >= 1886)
 
 #Assign label
-train_label <- train_dataset$demand
-test_label <- test_dataset$demand
+#train_label <- train_dataset$demand
+#test_label <- test_dataset$demand
 
 
 #remove label from dataset
 #train_dataset = select(train_dataset, -demand)
 #test_dataset = select(test_dataset, -demand)
 
-#gib mir nur ein produkt
-View(train_dataset)
+#gib mir nur ein produkt -> @flo zum testen einfach mal ein Produkt nehmen
 subset = filter(train_dataset, item_id == "HOBBIES_1_001")
 View(subset)
+
+
+#tests um die auswahl in loops durchzuführen
+#assign value of item _id array to temporary variable 
+item_id = item_id[1,1]
+#filter for this variable 
+subset_test = filter(train_dataset, item_id == !!item_id)
+subset_test$de
+
+#ranger test
+#data needs to be without missing values -> Might make sense to include more data for this approach as the first 50 datapoints get thrown out
+subset_test = na.omit(subset_test)
+View(subset_test)
+rangermodel = ranger(formula = demand~ ., data=subset_test, num.trees = 10000, num.threads = 4)
+
+
+subset_test_1 = filter(test_dataset, item_id == !!item_id)
+subset_test_1 = na.omit(subset_test_1)
+pred = predict(rangermodel,data = subset_test_1)
+
+
+pred_df = pred$predictions
+View(subset_test_1$demand)
+View(pred_df)
+View(pred)
+subset <- train_dataset %>%
+  
+
+
+
+
+
+
+###########################################################################################
+### Looping through the data
+###########################################################################################
 
 #preparation for looping through the data
 iterations = ncol(train_simple)
@@ -335,11 +375,12 @@ for (i in 1:10){
   #########################################################################################
   ### Random Forest Forecast
   #########################################################################################
+  #ranger paket
   
   #########################################################################################
   ### ML Approach Forecast
   #########################################################################################
-  
+  #
   #free memory
   free()
   
