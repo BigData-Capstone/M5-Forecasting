@@ -139,7 +139,7 @@ View(dataset)
 free()
 
 #filter only the items of store CA_3
-dataset = filter(dataset, store_id == "CA_3")
+#dataset = filter(dataset, store_id == "CA_3")
 
 #drop un-nessecary colums store id state id
 dataset = select(dataset, -store_id)
