@@ -197,8 +197,7 @@ params <- list(booster = "gbtree",
 N_cpu = detectCores()
 N_cpu
 #find the number of iterations to build the best model
-xgb.tab <- xgb.cv(data = trainDMatrix
-                  , param = params, evaluation = "rmse", nrounds = 100
+xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
                   , nthreads = N_cpu, nfold = 5, early_stopping_round = 10)
 
 
