@@ -12,7 +12,7 @@ library(caret)
 library(foreach)
 library(doParallel)
 library(ranger)
-
+library(caret)
 
 ###helper functions
 #define function for clearing memory
@@ -22,6 +22,11 @@ free <- function() invisible(gc())
 Mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
+}
+
+RMSE=function(actual, predicted){
+  rmse = sqrt(mean((actual-predicted)^2))
+  return(rmse)
 }
 
 #read in the data 
@@ -192,17 +197,16 @@ dataset = select(dataset, -cat_id)
 dataset = select(dataset, -dept_id)
 dataset = select(dataset, -id)
 
-#convert item id into numeric format
-#dataset$item_id = as.integer(dataset$item_id)
-#dataset$id = as.integer(dataset$id)
-
 #clear memory again
 free()
 
+#convert item id of the dataset into numeric format (starts at 1438)
+dataset$item_id = as.integer(dataset$item_id)
+
 #create training for the more complex dataset
 #create a list of all the items
-item_id <- data.frame(dataset$item_id)
-item_id <- unique(item_id)
+item_id_df <- data.frame(dataset$item_id)
+item_id_df <- unique(item_id_df)
 
 #split the training data
 train_dataset = filter(dataset, d >= 1431)
@@ -211,55 +215,18 @@ test_dataset = filter(dataset, d >= 1886)
 #clear memory and maybe remove dataset
 free()
 
-###########################################################################################
-### Some tests 
-###########################################################################################
-
-#gib mir nur ein produkt -> @flo zum testen einfach mal ein Produkt nehmen
-subset = filter(train_dataset, item_id == "HOBBIES_1_001")
-View(subset)
-
-
-#tests um die auswahl in loops durchzuf?hren
-#assign value of item _id array to temporary variable 
-item_id = item_id[1,1]
-#filter for this variable 
-subset_test = filter(train_dataset, item_id == !!item_id)
-
-
-#ranger test
-#data needs to be without missing values -> Might make sense to include more data for this approach as the first 50 datapoints get thrown out
-subset_test = na.omit(subset_test)
-View(subset_test)
-rangermodel = ranger(formula = demand~ ., data=subset_test, num.trees = 10000, num.threads = 4)
-
-
-subset_test_1 = filter(test_dataset, item_id == !!item_id)
-subset_test_1 = na.omit(subset_test_1)
-pred = predict(rangermodel,data = subset_test_1)
-
-
-pred_df = pred$predictions
-View(subset_test_1$demand)
-View(pred_df)
-View(pred)
-
-  
 
 ###########################################################################################
 ### XGBoost Implementation 
 ###########################################################################################
 #Assign label
 train_label = train_dataset$demand
-test_label <- test_dataset$demand
 
 #remove label from dataset
-train_dataset = select(train_dataset, -demand)
-test_dataset = select(test_dataset, -demand)
+xg_train_dataset = select(train_dataset, -demand)
 
 #convert datasets to matrix
-x_train = as.matrix(train_dataset)
-x_test = as.matrix(test_dataset)
+x_train = as.matrix(xg_train_dataset)
 
 #Create input for xgboost
 trainDMatrix <- xgb.DMatrix(data = x_train, label = train_label)
@@ -281,12 +248,14 @@ params <- list(booster = "gbtree",
 N_cpu = detectCores()
 
 #find the number of iterations to build the best model
-xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
+xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 10
                   , nthreads = N_cpu, nfold = 5, early_stopping_round = 10)
 
 
 #build the model
 model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration, importance = TRUE)
+
+
 ###########################################################################################
 ### Catboost Implementation
 ###########################################################################################
@@ -299,11 +268,10 @@ model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best
 
 #preparation for looping through the data
 iterations = ncol(train_simple)
-variables = 3
-results_matrix <- matrix(ncol=variables, nrow=iterations)
+variables = 5
+results_matrix <- matrix(ncol=variables, nrow=10)
 computing_start_time <- Sys.time()
-
-iterations = 3
+iterations = 10
 i=1
 
 
@@ -344,16 +312,13 @@ for (i in 1:10){
   #Create performance collector object to store rmsw values for every day
   performance_collector <- matrix(ncol=1, nrow=28)
   
-  #loop to calculate rmse for every day
-  for(x in 1:28){
-    actual = new_test[x,1]
-    predicted = predicted_df[x,1]
-    performance = RMSE(actual, predicted)
-    #write results in performance collector
-    performance_collector[x,1] = performance
-  }
-  #write results into results matrix
-  results_matrix[i,1] = mean(performance_collector)
+  #calculate rmse 
+  actual = new_test[,1]
+  predicted = predicted_df[,1]
+  performance = RMSE(actual, predicted)
+  
+  #write performance into results matrix
+  results_matrix[i,1] = performance
   
   #########################################################################################
   ### SNaive Forecast
@@ -370,16 +335,13 @@ for (i in 1:10){
   #Create performance collector object to store rmsw values for every day
   performance_collector <- matrix(ncol=1, nrow=28)
   
-  #loop to calculate rmse for every day
-  for(x in 1:28){
-    actual = new_test[x,1]
-    snaive_predicted = snaive_predicted_df[x,1]
-    performance = RMSE(actual, snaive_predicted)
-    #write results in performance collector
-    performance_collector[x,1] = performance
-  }
+  #calculate rmse 
+  actual = new_test[,1]
+  snaive_predicted = snaive_predicted_df[,1]
+  performance = RMSE(actual, snaive_predicted)
+  
   #write results into results matrix
-  results_matrix[i,2] = mean(performance_collector)
+  results_matrix[i,2] = performance
 
   #########################################################################################
   ### Arima Forecast
@@ -397,15 +359,12 @@ for (i in 1:10){
     performance_collector <- matrix(ncol=1, nrow=28)
     
     #loop to calculate rmse for every day
-    for(x in 1:28){
-      actual = new_test[x,1]
-      autoarima_predicted = autoarima_predicted_df[x,1]
-      performance = RMSE(actual, autoarima_predicted)
-      #write results in performance collector
-      performance_collector[x,1] = performance
-    }
+    actual = new_test[,1]
+    autoarima_predicted = autoarima_predicted_df[,1]
+    performance = RMSE(actual, autoarima_predicted)
+      
     #write results into results matrix
-    results_matrix[i,3] = mean(performance_collector)
+    results_matrix[i,3] = performance
   }, silent = FALSE)
   
   #########################################################################################
@@ -428,14 +387,73 @@ for (i in 1:10){
   #########################################################################################
   ### Random Forest Forecast
   #########################################################################################
-  #ranger paket
+  ##select item from item list
+  item_id = item_id_df[i,1]
   
-  #convert to timeseries item -> See Ivo
+  #filter for this variable to get the train set 
+  subset_train = filter(train_dataset, item_id == !!item_id)
+  subset_train = as.data.frame(subset_train)
+  
+  #remove price to avoid missing values
+  subset_train = select(subset_train,-sell_price)
+  
+  #create model
+  rangermodel = ranger(formula = demand~ ., data=subset_train, num.trees = 1000, num.threads = 4)
+
+  #filter for the item to get the test set 
+  subset_test = filter(test_dataset, item_id == !!item_id)
+  subset_test = as.data.frame(subset_test)
+  
+  #remove price to avoid missing values
+  subset_test = select(subset_test,-sell_price)
+  
+  #make prediction
+  pred = predict(rangermodel,data = subset_test)
+  pred_matrix = as.matrix(pred$predictions)
+  
+  #calculate RMSE
+  actual = as.matrix(subset_test$demand)
+  predicted = pred_matrix
+  performance = RMSE(actual, predicted)
+  
+  #write results into results matrix
+  results_matrix[i,4] = performance
   
   #########################################################################################
-  ### ML Approach Forecast
+  ### ML Approach Forecast: XGboost -> Prediction only
   #########################################################################################
-  #
+  ##select item from item list
+  item_id = item_id_df[i,1]
+  
+  #filter for this variable 
+  subset_test = filter(test_dataset, item_id == !!item_id)
+  
+  #get demand from dataset
+  subset_test_label <- subset_test$demand
+  subset_test_label_df <- as.data.frame(subset_test_label)
+  
+  #remove label from dataset
+  subset_test = select(subset_test, -demand)
+  
+  #convert to matrix
+  subset_test_matrix = as.matrix(subset_test)
+  
+  #make prediction
+  xgb_predicted = predict(model_xgb, newdata = subset_test_matrix)
+  #convert to df
+  xgb_predicted_df = as.data.frame(xgb_predicted)
+  
+  #instantiate performance collector
+  performance_collector <- matrix(ncol=1, nrow=28)
+  
+  #Calculate rmse 
+  actual = subset_test_label_df[,1]
+  predicted = xgb_predicted_df[,1]
+  performance = RMSE(actual, predicted)
+  
+  #write results into results matrix
+  results_matrix[i,5] = performance
+  
   #free memory
   free()
   
@@ -449,13 +467,10 @@ for (i in 1:10){
 mean(results_matrix[1:10,1])
 mean(results_matrix[1:10,2])
 mean(results_matrix[1:10,3])
+mean(results_matrix[1:10,4])
+mean(results_matrix[1:10,5])
 
-
-
-
-
-
-
+View(results_matrix)
 
 
 
