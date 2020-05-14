@@ -98,18 +98,16 @@ data.table::setorder(
 )
 free()
 
+#Make sure the dataset is sorted correctly
+stopifnot(!is.unsorted(dataset$d))
 
 # define indices for prediction/evaluation, training and testing set
-train_index <- 1431 # use the last 1.5 yrs for training -> Full 2015 + Half 2016
+train_index <- 1350 # use the last 1.5 yrs for training -> Full 2015 + Half 2016 use a little more data to avoid nas for lag
 test_index <- (1913-28) #predict the last 28 days
 
 # reduce data
 dataset <- dataset[get("d") >= train_index, ]
 free()
-
-
-#Make sure the dataset is sorted correctly
-stopifnot(!is.unsorted(dataset$d))
 
 #merge the calendar
 calendar.csv[, `:=` (weekend = ifelse(get("weekday") %in% c("Saturday", "Sunday"), 1L, 0L),
@@ -172,9 +170,9 @@ demand_features <- function(X) {
   
 }
 
-#create features
+#create features before reducing dataset to avoid NA's
 dataset <- dataset %>%
-  demand_features() 
+  demand_features()
 
 #clear memory and remove csv's
 rm(sales_train_validation.csv)
@@ -185,9 +183,18 @@ free()
 #filter only the items of store CA_3
 dataset = filter(dataset, store_id == "CA_3")
 View(dataset)
-#drop un-nessecary colums store_id & state id & id
+
+
+#drop un-nessecary colums store_id, state id, cat_id, dept_id & id
 dataset = select(dataset, -store_id)
 dataset = select(dataset, -state_id)
+dataset = select(dataset, -cat_id)
+dataset = select(dataset, -dept_id)
+dataset = select(dataset, -id)
+
+#convert item id into numeric format
+#dataset$item_id = as.integer(dataset$item_id)
+#dataset$id = as.integer(dataset$id)
 
 #clear memory again
 free()
@@ -197,35 +204,28 @@ free()
 item_id <- data.frame(dataset$item_id)
 item_id <- unique(item_id)
 
-#Encode category and departement id as dummy variables
-#dataset$cat_id = one_hot(as.data.table(dataset$cat_id))
-#dataset$dept_id = one_hot(as.data.table(dataset$dept_id))
-
-View(dataset)
 #split the training data
-train_dataset = filter(dataset, d < 1886)
+train_dataset = filter(dataset, d >= 1431)
 test_dataset = filter(dataset, d >= 1886)
 
-#Assign label
-#train_label <- train_dataset$demand
-#test_label <- test_dataset$demand
+#clear memory and maybe remove dataset
+free()
 
-
-#remove label from dataset
-#train_dataset = select(train_dataset, -demand)
-#test_dataset = select(test_dataset, -demand)
+###########################################################################################
+### Some tests 
+###########################################################################################
 
 #gib mir nur ein produkt -> @flo zum testen einfach mal ein Produkt nehmen
 subset = filter(train_dataset, item_id == "HOBBIES_1_001")
 View(subset)
 
 
-#tests um die auswahl in loops durchzuführen
+#tests um die auswahl in loops durchzuf?hren
 #assign value of item _id array to temporary variable 
 item_id = item_id[1,1]
 #filter for this variable 
 subset_test = filter(train_dataset, item_id == !!item_id)
-subset_test$de
+
 
 #ranger test
 #data needs to be without missing values -> Might make sense to include more data for this approach as the first 50 datapoints get thrown out
@@ -243,11 +243,53 @@ pred_df = pred$predictions
 View(subset_test_1$demand)
 View(pred_df)
 View(pred)
-subset <- train_dataset %>%
+
   
 
+###########################################################################################
+### XGBoost Implementation 
+###########################################################################################
+#Assign label
+train_label = train_dataset$demand
+test_label <- test_dataset$demand
+
+#remove label from dataset
+train_dataset = select(train_dataset, -demand)
+test_dataset = select(test_dataset, -demand)
+
+#convert datasets to matrix
+x_train = as.matrix(train_dataset)
+x_test = as.matrix(test_dataset)
+
+#Create input for xgboost
+trainDMatrix <- xgb.DMatrix(data = x_train, label = train_label)
+
+#set the parameter
+params <- list(booster = "gbtree",
+               objective = "reg:linear",
+               eval_metric = "rmse",
+               eta = 0.2,
+               max_depth = 8,
+               min_child_weight = 10,
+               colsample_bytree = 1,
+               gamma = 0,
+               alpha = 1.0,
+               subsample = 0.7
+)
+
+#detect the number of cores for multicore operation
+N_cpu = detectCores()
+
+#find the number of iterations to build the best model
+xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
+                  , nthreads = N_cpu, nfold = 5, early_stopping_round = 10)
 
 
+#build the model
+model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration, importance = TRUE)
+###########################################################################################
+### Catboost Implementation
+###########################################################################################
 
 
 
@@ -369,13 +411,26 @@ for (i in 1:10){
   #########################################################################################
   ### Data Preparation for ML approaches
   #########################################################################################
-  #select the individual product
+  #selecting the individual product
+  #assign value of item _id array to temporary variable 
+  
+  #item_id = item_id[i,1]
+  
+  #filter for this variable 
+  
+  #subset_test = filter(train_dataset, item_id == !!item_id)
+  
+  #prediction step
+  
+  #loop to assess performance
   
   
   #########################################################################################
   ### Random Forest Forecast
   #########################################################################################
   #ranger paket
+  
+  #convert to timeseries item -> See Ivo
   
   #########################################################################################
   ### ML Approach Forecast
