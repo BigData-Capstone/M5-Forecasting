@@ -185,11 +185,12 @@ dataset = filter(dataset, store_id == "CA_3")
 View(dataset)
 
 
-#drop un-nessecary colums store_id & state id & id
+#drop un-nessecary colums store_id, state id, cat_id, dept_id & id
 dataset = select(dataset, -store_id)
 dataset = select(dataset, -state_id)
 dataset = select(dataset, -cat_id)
 dataset = select(dataset, -dept_id)
+dataset = select(dataset, -id)
 
 #convert item id into numeric format
 #dataset$item_id = as.integer(dataset$item_id)
