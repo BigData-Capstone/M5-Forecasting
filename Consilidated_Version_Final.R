@@ -219,55 +219,6 @@ intermediate_test_dataset_1 = rbind(intermediate_test_dataset_1,intermediate_tes
 #rename complete dataset
 complete_test_dataset = intermediate_test_dataset_1
 
-
-###########################################################################################
-### XGBoost Implementation 
-###########################################################################################
-##select item from item list
-item_id = item_id_df[1,1]
-
-#filter for this variable to get the train set 
-subset_train = filter(train_dataset, item_id == !!item_id)
-subset_train = as.data.frame(subset_train)
-
-#Assign label
-train_label = subset_train$demand
-
-#remove label from dataset
-xg_train_dataset = select(subset_train, -demand)
-
-#convert datasets to matrix
-x_train = as.matrix(xg_train_dataset)
-
-#Create input for xgboost
-trainDMatrix <- xgb.DMatrix(data = x_train, label = train_label)
-
-#set the parameter
-params <- list(booster = "gbtree",
-               objective = "reg:linear",
-               eval_metric = "rmse",
-               eta = 0.2,
-               max_depth = 1,
-               min_child_weight = 10,
-               colsample_bytree = 1,
-               gamma = 0,
-               alpha = 1.0,
-               subsample = 0.7
-)
-
-#detect the number of cores for multicore operation
-N_cpu = detectCores()
-
-#find the number of iterations to build the best model
-xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
-                  , nthreads = N_cpu, nfold = 5, early_stopping_round = 10)
-
-
-#build the model
-model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration, importance = TRUE)
-
-
-
 ###########################################################################################
 ### Looping through the data
 ###########################################################################################
@@ -275,14 +226,12 @@ model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best
 #preparation for looping through the data
 #iterations = ncol(train_simple)
 variables = 5
-results_matrix <- matrix(ncol=variables, nrow=10)
+results_matrix <- matrix(ncol=variables, nrow=50)
 computing_start_time <- Sys.time()
-
-
 
 i=1
 #loop through the data
-for (i in 1:10){
+for (i in 1:50){
   #########################################################################################
   ### Data Preparation for simple approaches
   #########################################################################################
@@ -437,7 +386,7 @@ for (i in 1:10){
     
     #substitution for prediction -> Demand is in column 15
     subset_test_df[current_day,15] = pred_rf$predictions
-
+    
     #select the next day to calculate lags
     next_day = current_day +1
     
@@ -478,6 +427,7 @@ for (i in 1:10){
   #write results into results matrix
   results_matrix[i,4] = performance
   
+  
   #########################################################################################
   ### ML Approach Forecast: XGboost 
   #########################################################################################
@@ -504,23 +454,22 @@ for (i in 1:10){
   params <- list(booster = "gbtree",
                  objective = "reg:linear",
                  eval_metric = "rmse",
-                 eta = 0.1,
+                 eta = 0.05,
                  max_depth = 1,
                  min_child_weight = 10,
                  colsample_bytree = 1,
-                 gamma = 0,
-                 alpha = 1.0,
-                 subsample = 0.7
+                 gamma = 0.1,
+                 subsample = 0.75
   )
   
   #detect the number of cores for multicore operation
   N_cpu = detectCores()
   
   xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
-                    , nthreads = N_cpu, nfold = 5, early_stopping_round = 10)
+                    , nthreads = N_cpu, nfold = 5, early_stopping_round = 10, verbose = 0)
   
   #build the model
-  model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration , importance = TRUE)
+  model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration , importance = TRUE, verbose = 0)
   
   #initialize predictions matrix to store individual predictions
   predictions_matrix_xgb = matrix(nrow = 28, ncol = 1)
@@ -621,13 +570,12 @@ for (i in 1:10){
 }
 
 #calculate mean of results (#Needs to be weighted depending on how much the product has been sold)
-mean(results_matrix[1:10,1])
-mean(results_matrix[1:10,2])
-mean(results_matrix[1:10,3])
-mean(results_matrix[1:10,4])
-mean(results_matrix[1:10,5])
+mean(results_matrix[1:50,1])
+mean(results_matrix[1:50,2])
+mean(results_matrix[1:50,3])
+mean(results_matrix[1:50,4])
+mean(results_matrix[1:50,5])
 
-View(results_matrix)
 
 
 
