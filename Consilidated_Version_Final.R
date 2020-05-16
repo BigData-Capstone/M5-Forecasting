@@ -459,8 +459,8 @@ for (i in 1:50){
                  max_depth = 1,
                  min_child_weight = 8,
                  colsample_bytree = 1,
-                 gamma = 0.1,
-                 subsample = 0.75
+                 gamma = 0.15,
+                 subsample = 0.8
   )
   
   #detect the number of cores for multicore operation
