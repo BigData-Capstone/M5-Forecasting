@@ -219,9 +219,11 @@ complete_test_dataset = intermediate_test_dataset_1
 ### Looping through the data
 ###########################################################################################
 
+iterations = 3049   # number of products
+
 #preparation for looping through the data
 #create results matrix
-results_matrix <- matrix(ncol=6, nrow=3049)
+results_matrix <- matrix(ncol=6, nrow=iterations)
 results_matrix[,6]= item_id_df$dataset.item_id
 
 #detect the number of cores for multicore operation
@@ -231,7 +233,7 @@ computing_start_time <- Sys.time()
 
 i=1
 #loop through the data
-for (i in 1:100){
+for (i in 1:iterations){
   #########################################################################################
   ### Data Preparation for simple approaches
   #########################################################################################
@@ -557,14 +559,14 @@ for (i in 1:100){
 }
 
 #calculate mean of results (#Needs to be weighted depending on how much the product has been sold)
-mean(results_matrix[1:100,1])
-mean(results_matrix[1:100,2])
-mean(results_matrix[1:100,3])
-mean(results_matrix[1:100,4])
-mean(results_matrix[1:100,5])
+mean(results_matrix[1:iterations,1])
+mean(results_matrix[1:iterations,2])
+mean(results_matrix[1:iterations,3])
+mean(results_matrix[1:iterations,4])
+mean(results_matrix[1:iterations,5])
 View(results_matrix)
 #convert matrix to dataframe
-results_df  = as.data.frame(results_matrix[1:50,])
+results_df  = as.data.frame(results_matrix[1:iterations,])
 
 #rename columns
 names(results_df)[1] <- "Naive"
@@ -599,7 +601,7 @@ weighted_factors_df <- weighted_factors_df %>%
 sum(weighted_factors_df$dataset.weighted_sales_percentage)
 
 #add weighting factors to results
-results_df$weighting_factor = weighted_factors_df[1:50,]$dataset.weighted_sales_percentage
+results_df$weighting_factor = weighted_factors_df[1:iterations,]$dataset.weighted_sales_percentage
 
 #create weighted results
 results_df$Naive_weighted = results_df$Naive * results_df$weighting_factor
@@ -617,4 +619,36 @@ XGBoost_result = sum(results_df$XGBoost_weighted)
 
 
 
+Naive_result
+SNaive_result
+Autoarima_result
+Random_Forest_result
+XGBoost_result
+
+
+# Calculate without ARIMA errors
+results_withoutNA_df = results_df[!(is.na(results_df$Autoarima)),]
+
+#calculate the sum of all weighted factors
+Naive_result_withoutNA = sum(results_withoutNA_df$Naive_weighted) 
+SNaive_result_withoutNA = sum(results_withoutNA_df$SNaive_weighted) 
+Autoarima_result_withoutNA = sum(results_withoutNA_df$Autoarima_weighted, na.rm = TRUE)
+Random_Forest_result_withoutNA = sum(results_withoutNA_df$`Random Forest_weighted`) 
+XGBoost_result_withoutNA = sum(results_withoutNA_df$XGBoost_weighted) 
+
+Naive_result_withoutNA
+SNaive_result_withoutNA
+Autoarima_result_withoutNA
+Random_Forest_result_withoutNA
+XGBoost_result_withoutNA
+
+mean(results_withoutNA_df$Naive)
+mean(results_withoutNA_df$SNaive)
+mean(results_withoutNA_df$Autoarima)
+mean(results_withoutNA_df$`Random Forest`)
+mean(results_withoutNA_df$XGBoost)
+
+fwrite(results_df, "samstagfinal-v01/20200516_samstag-final.csv")
+
+save.image("~/R-Code/M5-Forecasting/samstagfinal-v01/.RData")
 
