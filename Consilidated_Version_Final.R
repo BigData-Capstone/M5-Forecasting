@@ -8,6 +8,7 @@ library(xgboost)
 library(Matrix)
 library(caret)
 library(ranger)
+library(parallel)
 
 ###helper functions
 #define function for clearing memory
@@ -223,11 +224,14 @@ complete_test_dataset = intermediate_test_dataset_1
 results_matrix <- matrix(ncol=6, nrow=3049)
 results_matrix[,6]= item_id_df$dataset.item_id
 
+#detect the number of cores for multicore operation
+N_cpu = detectCores()
+
 computing_start_time <- Sys.time()
 
 i=1
 #loop through the data
-for (i in 1:50){
+for (i in 1:100){
   #########################################################################################
   ### Data Preparation for simple approaches
   #########################################################################################
@@ -260,8 +264,6 @@ for (i in 1:50){
   #convert to df for further calculations
   predicted_df = as.data.frame(predicted)
   
-  #Create performance collector object to store rmsw values for every day
-  performance_collector <- matrix(ncol=1, nrow=28)
   
   #calculate rmse 
   actual = new_test[,1]
@@ -283,8 +285,6 @@ for (i in 1:50){
   #convert to df for further calculations
   snaive_predicted_df = as.data.frame(snaive_predicted)
   
-  #Create performance collector object to store rmsw values for every day
-  performance_collector <- matrix(ncol=1, nrow=28)
   
   #calculate rmse 
   actual = new_test[,1]
@@ -305,9 +305,6 @@ for (i in 1:50){
     
     #convert to df for further calculations
     autoarima_predicted_df = as.data.frame(autoarima_predicted)
-    
-    #Create performance collector object to store rmsw values for every day
-    performance_collector <- matrix(ncol=1, nrow=28)
     
     #loop to calculate rmse for every day
     actual = new_test[,1]
@@ -331,9 +328,6 @@ for (i in 1:50){
   
   #remove price to avoid missing values
   subset_train_df = select(subset_train_df,-sell_price)
-  
-  #get number of cpus
-  N_cpu = detectCores()
   
   #create model
   rangermodel = ranger(formula = demand~ ., data=subset_train_df, num.trees = 1000, num.threads = N_cpu)
@@ -407,7 +401,7 @@ for (i in 1:50){
                                                 subset_test_df[next_day,]$lag_4 + 
                                                 subset_test_df[next_day,]$lag_5 + 
                                                 subset_test_df[next_day,]$lag_6 +
-                                                subset_test_df[next_day,]$lag_7)/3
+                                                subset_test_df[next_day,]$lag_7)/7
     }
     
     
@@ -457,9 +451,6 @@ for (i in 1:50){
                  gamma = 0.15,
                  subsample = 0.8
   )
-  
-  #detect the number of cores for multicore operation
-  N_cpu = detectCores()
   
   xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
                     , nthreads = N_cpu, nfold = 5, early_stopping_round = 10, verbose = 0)
@@ -544,7 +535,7 @@ for (i in 1:50){
                                                 subset_test_df[next_day,]$lag_4 + 
                                                 subset_test_df[next_day,]$lag_5 + 
                                                 subset_test_df[next_day,]$lag_6 +
-                                                subset_test_df[next_day,]$lag_7)/3
+                                                subset_test_df[next_day,]$lag_7)/7
     }
     
     
@@ -566,12 +557,12 @@ for (i in 1:50){
 }
 
 #calculate mean of results (#Needs to be weighted depending on how much the product has been sold)
-mean(results_matrix[1:50,1])
-mean(results_matrix[1:50,2])
-mean(results_matrix[1:50,3])
-mean(results_matrix[1:50,4])
-mean(results_matrix[1:50,5])
-
+mean(results_matrix[1:100,1])
+mean(results_matrix[1:100,2])
+mean(results_matrix[1:100,3])
+mean(results_matrix[1:100,4])
+mean(results_matrix[1:100,5])
+View(results_matrix)
 #convert matrix to dataframe
 results_df  = as.data.frame(results_matrix[1:50,])
 
