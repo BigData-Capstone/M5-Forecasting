@@ -1,18 +1,13 @@
 #importing relevant libraries
 library(tidyverse)
 library(data.table)
-library(RcppRoll)
 library(dplyr)
 library(janitor)
 library(forecast)
 library(xgboost)
 library(Matrix)
-library(mltools)
 library(caret)
-library(foreach)
-library(doParallel)
 library(ranger)
-library(caret)
 
 ###helper functions
 #define function for clearing memory
@@ -224,9 +219,10 @@ complete_test_dataset = intermediate_test_dataset_1
 ###########################################################################################
 
 #preparation for looping through the data
-#iterations = ncol(train_simple)
-variables = 5
-results_matrix <- matrix(ncol=variables, nrow=50)
+#create results matrix
+results_matrix <- matrix(ncol=6, nrow=3049)
+results_matrix[,6]= item_id_df$dataset.item_id
+
 computing_start_time <- Sys.time()
 
 i=1
@@ -456,10 +452,10 @@ for (i in 1:50){
                  eval_metric = "rmse",
                  eta = 0.05,
                  max_depth = 1,
-                 min_child_weight = 10,
+                 min_child_weight = 8,
                  colsample_bytree = 1,
-                 gamma = 0.1,
-                 subsample = 0.75
+                 gamma = 0.15,
+                 subsample = 0.8
   )
   
   #detect the number of cores for multicore operation
@@ -576,8 +572,57 @@ mean(results_matrix[1:50,3])
 mean(results_matrix[1:50,4])
 mean(results_matrix[1:50,5])
 
+#convert matrix to dataframe
+results_df  = as.data.frame(results_matrix[1:50,])
 
+#rename columns
+names(results_df)[1] <- "Naive"
+names(results_df)[2] <- "SNaive"
+names(results_df)[3] <- "Autoarima"
+names(results_df)[4] <- "Random Forest"
+names(results_df)[5] <- "XGBoost"
+names(results_df)[6] <- "item_id"
 
+#create weighting factor as some products are sold a lot more than others
+dataset <- dataset %>%
+  mutate(
+    total_sales_per_store = sum(demand)) %>%
+  group_by(item_id) %>%
+  mutate(
+    total_sales_per_item = sum(demand),
+    weighted_sales_percentage = total_sales_per_item/total_sales_per_store
+  )%>%
+  ungroup()
+View(dataset)
+
+#select the relevant columns
+weighted_factors_df <- data.frame(dataset$item_id,dataset$weighted_sales_percentage, dataset$d)
+
+#filter for one day as the values are repeated for every day
+weighted_factors_df <- weighted_factors_df %>%
+  filter(dataset.d == 1350) %>%
+  #remove helper column d
+  select(-dataset.d)
+
+#make sure they add up to one
+sum(weighted_factors_df$dataset.weighted_sales_percentage)
+
+#add weighting factors to results
+results_df$weighting_factor = weighted_factors_df[1:50,]$dataset.weighted_sales_percentage
+
+#create weighted results
+results_df$Naive_weighted = results_df$Naive * results_df$weighting_factor
+results_df$SNaive_weighted = results_df$SNaive * results_df$weighting_factor
+results_df$Autoarima_weighted = results_df$Autoarima * results_df$weighting_factor
+results_df$`Random Forest_weighted` = results_df$`Random Forest`* results_df$weighting_factor
+results_df$XGBoost_weighted = results_df$XGBoost * results_df$weighting_factor
+
+#calculate the sum of all weighted factors
+Naive_result = sum(results_df$Naive_weighted) 
+SNaive_result = sum(results_df$SNaive_weighted) 
+Autoarima_result = sum(results_df$Autoarima_weighted)
+Random_Forest_result = sum(results_df$`Random Forest_weighted`) 
+XGBoost_result = sum(results_df$XGBoost_weighted) 
 
 
 
