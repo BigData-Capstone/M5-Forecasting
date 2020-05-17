@@ -648,7 +648,20 @@ mean(results_withoutNA_df$Autoarima)
 mean(results_withoutNA_df$`Random Forest`)
 mean(results_withoutNA_df$XGBoost)
 
-fwrite(results_df, "samstagfinal-v01/20200516_samstag-final.csv")
 
-save.image("~/R-Code/M5-Forecasting/samstagfinal-v01/.RData")
 
+
+# fwrite(results_df, "samstagfinal-v01/20200516_samstag-final.csv")
+# save.image("~/R-Code/M5-Forecasting/samstagfinal-v01/.RData")
+# load("~/R-Code/M5-Forecasting/samstagfinal-v01/.RData")
+
+
+
+#####################################################################
+## Render & Forward defined results to RMarkdown File
+#####################################################################
+library(rmarkdown)
+library(knitr)
+render("main.Rmd",
+       output_format = "html_document",
+       output_file = "Capstone.html")

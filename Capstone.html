@@ -369,24 +369,235 @@ summary {
 </div>
 
 
-<div id="r-markdown" class="section level2">
-<h2>R Markdown</h2>
-<p>This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <a href="http://rmarkdown.rstudio.com" class="uri">http://rmarkdown.rstudio.com</a>.</p>
-<p>When you click the <strong>Knit</strong> button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:</p>
-<pre class="r"><code>summary(cars)</code></pre>
-<pre><code>##      speed           dist       
-##  Min.   : 4.0   Min.   :  2.00  
-##  1st Qu.:12.0   1st Qu.: 26.00  
-##  Median :15.0   Median : 36.00  
-##  Mean   :15.4   Mean   : 42.98  
-##  3rd Qu.:19.0   3rd Qu.: 56.00  
-##  Max.   :25.0   Max.   :120.00</code></pre>
+<div id="prepare-r" class="section level2">
+<h2>Prepare R</h2>
+<div id="libraries" class="section level5">
+<h5>Libraries</h5>
+<pre class="r"><code>#importing relevant libraries
+library(tidyverse)
+library(data.table)
+library(dplyr)
+library(janitor)
+library(forecast)
+library(xgboost)
+library(Matrix)
+library(caret)
+library(ranger)
+library(parallel)</code></pre>
 </div>
-<div id="including-plots" class="section level2">
-<h2>Including Plots</h2>
-<p>You can also embed plots, for example:</p>
-<p><img src="data:image/png;base64,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" width="672" /></p>
-<p>Note that the <code>echo = FALSE</code> parameter was added to the code chunk to prevent printing of the R code that generated the plot.</p>
+<div id="helper-functions" class="section level5">
+<h5>Helper Functions</h5>
+<pre class="r"><code>###helper functions
+#define function for clearing memory
+free &lt;- function() invisible(gc())
+
+#define mode function to find most frequent value
+Mode &lt;- function(x) {
+  ux &lt;- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+RMSE=function(actual, predicted){
+  rmse = sqrt(mean((actual-predicted)^2))
+  return(rmse)
+}</code></pre>
+</div>
+<div id="read-the-data" class="section level5">
+<h5>Read the data</h5>
+<pre class="r"><code>#read in the data 
+sales_train_validation.csv &lt;- fread(&quot;sales_train_validation.csv&quot;, stringsAsFactors = TRUE)
+calendar.csv &lt;- fread(&quot;calendar.csv&quot;, stringsAsFactors = TRUE)
+sell_prices.csv &lt;- fread(&quot;sell_prices.csv&quot;, stringsAsFactors = TRUE)
+}</code></pre>
+</div>
+</div>
+<div id="prepare-datasat" class="section level2">
+<h2>Prepare Datasat</h2>
+<div id="creating-simple-dataset" class="section level3">
+<h3>Creating Simple Dataset</h3>
+<pre class="r"><code>###########################################################################################
+### Creating simple dataset
+###########################################################################################
+
+#create simple dataset
+#create simple (for naive, snaive and arima) 
+#do some data wrangling
+simple_dataset &lt;- sales_train_validation.csv %&gt;% 
+  #eliminate valitrainion to save memory
+  mutate(id = gsub(&quot;_validation&quot;, &quot;&quot;, id)) %&gt;%
+  select(-item_id) %&gt;% 
+  select(-dept_id) %&gt;%
+  select(-cat_id) %&gt;%
+  #filter for specific store
+  filter(store_id == &quot;CA_3&quot;) %&gt;%
+  #eliminate further columns
+  select(-store_id) %&gt;%
+  select(-state_id) %&gt;%
+  mutate_if(is.factor, as.integer)
+
+
+#clear the memory
+free()
+
+#transpose the data
+simple_dataset = t(simple_dataset)
+free()
+
+#write first row as column header
+simple_dataset &lt;- simple_dataset %&gt;%
+  row_to_names(row_number = 1)
+
+#only leave last 1,5 years for training as the years before might not be relevant
+
+simple_dataset = simple_dataset[-c(1:1430),]
+
+#create training data for simple_dataset -&gt; Last 28 days should be predicted
+index = tail(1:nrow(simple_dataset),28)
+train_simple = simple_dataset[-index,]
+test_simple = simple_dataset[index,]</code></pre>
+</div>
+<div id="creating-complex-dataset" class="section level3">
+<h3>Creating complex dataset</h3>
+<pre class="r"><code>#create complex dataset
+dataset &lt;- data.table::melt.data.table(
+  data = sales_train_validation.csv,
+  id.vars = colnames(sales_train_validation.csv)[grepl(&quot;id&quot;, colnames(sales_train_validation.csv))],
+  measure.vars = colnames(sales_train_validation.csv)[grepl(&quot;^d_&quot;, colnames(sales_train_validation.csv))],
+  variable.name = &quot;d&quot;,
+  value.name = &quot;demand&quot;,
+  na.rm = FALSE
+)
+
+#remove csv and clear memory
+free()
+
+# make data smaller
+dataset[, (&quot;d&quot;) := as.integer(gsub(&quot;^d_&quot;, &quot;&quot;, get(&quot;d&quot;)))]
+free()
+
+# ensure order
+data.table::setorder(
+  x = dataset,
+  cols = &quot;d&quot;
+)
+free()
+
+#Make sure the dataset is sorted correctly
+stopifnot(!is.unsorted(dataset$d))
+
+# define indices for prediction/evaluation, training and testing set
+train_index &lt;- 1350 # use the last 1.5 yrs for training -&gt; Full 2015 + Half 2016 use a little more data to avoid nas for lag
+test_index &lt;- (1913-28) #predict the last 28 days
+
+# reduce data
+dataset &lt;- dataset[get(&quot;d&quot;) &gt;= train_index, ]
+free()
+
+#merge the calendar
+calendar.csv[, `:=` (weekend = ifelse(get(&quot;weekday&quot;) %in% c(&quot;Saturday&quot;, &quot;Sunday&quot;), 1L, 0L),
+                     d = as.integer(gsub(&quot;^d_&quot;, &quot;&quot;, get(&quot;d&quot;))),
+                     day = as.integer(substr(get(&quot;date&quot;), start = 9, stop = 10)),
+                     date = factor(as.Date(get(&quot;date&quot;))),
+                     event_name_1 = as.integer(factor(get(&quot;event_name_1&quot;))),
+                     event_type_1 = as.integer(factor(get(&quot;event_type_1&quot;))),
+                     event_name_2 = as.integer(factor(get(&quot;event_name_2&quot;))),
+                     event_type_2 = as.integer(factor(get(&quot;event_type_2&quot;))))][
+                       , `:=` (date = NULL,
+                               weekday = NULL)
+                       ]
+
+# merge calendar to dataset
+dataset &lt;- calendar.csv[get(&quot;d&quot;) &gt;= train_index, ][dataset, on = &quot;d&quot;]
+free()
+
+
+# merge prices to dataset
+dataset &lt;- sell_prices.csv[dataset, on = c(&quot;store_id&quot;, &quot;item_id&quot;, &quot;wm_yr_wk&quot;)][, wm_yr_wk := NULL]
+free()
+
+# create more features
+demand_features &lt;- function(X) {
+  X %&gt;% 
+    group_by(id) %&gt;% 
+    #create some lag variables 
+    mutate(
+      lag_1 = dplyr::lag(demand, 1),
+      lag_2 = dplyr::lag(demand, 2),
+      lag_3 = dplyr::lag(demand, 3),
+      lag_4 = dplyr::lag(demand, 4),
+      lag_5 = dplyr::lag(demand, 5),
+      lag_6 = dplyr::lag(demand, 6),
+      lag_7 = dplyr::lag(demand, 7),
+      mean_last3 = (lag_1+lag_2+lag_3)/3,
+      mean_last7 = (lag_1+lag_2+lag_3+lag_4+lag_5+lag_6+lag_7)/7,
+      lag_14 = dplyr::lag(demand, 14),
+      lag_21 = dplyr::lag(demand, 21),
+      lag_28 = dplyr::lag(demand, 28)) %&gt;% 
+    ungroup()%&gt;%
+    
+    #create more features regarding the demand
+    group_by(item_id)%&gt;%
+    mutate(
+      demand_min = min(demand, na.rm = FALSE),
+      demand_mean = mean(demand, na.rm = FALSE),
+      demand_median = median(demand, na.rm = FALSE),
+      demand_max = max(demand, na.rm = FALSE),
+      demand_mode = Mode(demand),
+      demand_sd = sd(demand, na.rm = FALSE)
+    )%&gt;%
+    ungroup()
+  
+  
+}
+
+#create features before reducing dataset to avoid NA&#39;s
+dataset &lt;- dataset %&gt;%
+  demand_features()
+
+#clear memory and remove CSV
+rm(sales_train_validation.csv)
+rm(calendar.csv)
+rm(sell_prices.csv)
+free()
+
+#filter only the items of store CA_3
+dataset = filter(dataset, store_id == &quot;CA_3&quot;)
+
+#drop un-nessecary colums store_id, state id, cat_id, dept_id &amp; id
+dataset = select(dataset, -store_id)
+dataset = select(dataset, -state_id)
+dataset = select(dataset, -cat_id)
+dataset = select(dataset, -dept_id)
+dataset = select(dataset, -id)
+
+#clear memory again
+free()
+
+#convert item id of the dataset into numeric format (starts at 1438)
+dataset$item_id = as.integer(dataset$item_id)
+
+#create training for the more complex dataset
+#create a list of all the items
+item_id_df &lt;- data.frame(dataset$item_id)
+item_id_df &lt;- unique(item_id_df)
+
+#split the training data
+#split the training data
+train_dataset = filter(dataset, d &gt;= 1431 &amp; d &lt; 1886)
+intermediate_test_dataset_1 = filter(dataset, d &gt;= 1800 &amp; d &lt;= 1885)
+intermediate_test_dataset_2 = filter(dataset, d == 1886)
+test_dataset = filter(dataset, d &gt; 1886)
+
+#clear memory and maybe remove dataset
+free()
+
+#remove demand and all the lag metrics from the testset as they would not be available with the exception of the first day (1886)
+test_dataset[,17:34] &lt;-NA
+intermediate_test_dataset_1 = rbind(intermediate_test_dataset_1,intermediate_test_dataset_2, test_dataset)
+
+#rename complete dataset
+complete_test_dataset = intermediate_test_dataset_1</code></pre>
+</div>
 </div>
 
 

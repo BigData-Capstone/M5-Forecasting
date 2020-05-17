@@ -5,26 +5,241 @@ date: "24 4 2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## Prepare R
+##### Libraries
+```{r Importing Libraries, eval = FALSE, echo = TRUE, error = FALSE}
+#importing relevant libraries
+library(tidyverse)
+library(data.table)
+library(dplyr)
+library(janitor)
+library(forecast)
+library(xgboost)
+library(Matrix)
+library(caret)
+library(ranger)
+library(parallel)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+##### Helper Functions
+```{r Helper Functions, eval = FALSE, echo = TRUE}  
+###helper functions
+#define function for clearing memory
+free <- function() invisible(gc())
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+#define mode function to find most frequent value
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
 
-```{r cars}
-summary(cars)
+RMSE=function(actual, predicted){
+  rmse = sqrt(mean((actual-predicted)^2))
+  return(rmse)
+}
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+##### Read the data
+```{r read in the data, eval = FALSE, echo = TRUE}  
+#read in the data 
+sales_train_validation.csv <- fread("sales_train_validation.csv", stringsAsFactors = TRUE)
+calendar.csv <- fread("calendar.csv", stringsAsFactors = TRUE)
+sell_prices.csv <- fread("sell_prices.csv", stringsAsFactors = TRUE)
+}
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Prepare Datasat
+### Creating Simple Dataset
+```{r Creating simple dataset, eval = FALSE, echo = TRUE}  
+###########################################################################################
+### Creating simple dataset
+###########################################################################################
+
+#create simple dataset
+#create simple (for naive, snaive and arima) 
+#do some data wrangling
+simple_dataset <- sales_train_validation.csv %>% 
+  #eliminate valitrainion to save memory
+  mutate(id = gsub("_validation", "", id)) %>%
+  select(-item_id) %>% 
+  select(-dept_id) %>%
+  select(-cat_id) %>%
+  #filter for specific store
+  filter(store_id == "CA_3") %>%
+  #eliminate further columns
+  select(-store_id) %>%
+  select(-state_id) %>%
+  mutate_if(is.factor, as.integer)
+
+
+#clear the memory
+free()
+
+#transpose the data
+simple_dataset = t(simple_dataset)
+free()
+
+#write first row as column header
+simple_dataset <- simple_dataset %>%
+  row_to_names(row_number = 1)
+
+#only leave last 1,5 years for training as the years before might not be relevant
+
+simple_dataset = simple_dataset[-c(1:1430),]
+
+#create training data for simple_dataset -> Last 28 days should be predicted
+index = tail(1:nrow(simple_dataset),28)
+train_simple = simple_dataset[-index,]
+test_simple = simple_dataset[index,]
+```
+
+### Creating complex dataset
+```{r Creating complex dataset, eval = FALSE, echo = TRUE}  
+#create complex dataset
+dataset <- data.table::melt.data.table(
+  data = sales_train_validation.csv,
+  id.vars = colnames(sales_train_validation.csv)[grepl("id", colnames(sales_train_validation.csv))],
+  measure.vars = colnames(sales_train_validation.csv)[grepl("^d_", colnames(sales_train_validation.csv))],
+  variable.name = "d",
+  value.name = "demand",
+  na.rm = FALSE
+)
+
+#remove csv and clear memory
+free()
+
+# make data smaller
+dataset[, ("d") := as.integer(gsub("^d_", "", get("d")))]
+free()
+
+# ensure order
+data.table::setorder(
+  x = dataset,
+  cols = "d"
+)
+free()
+
+#Make sure the dataset is sorted correctly
+stopifnot(!is.unsorted(dataset$d))
+
+# define indices for prediction/evaluation, training and testing set
+train_index <- 1350 # use the last 1.5 yrs for training -> Full 2015 + Half 2016 use a little more data to avoid nas for lag
+test_index <- (1913-28) #predict the last 28 days
+
+# reduce data
+dataset <- dataset[get("d") >= train_index, ]
+free()
+
+#merge the calendar
+calendar.csv[, `:=` (weekend = ifelse(get("weekday") %in% c("Saturday", "Sunday"), 1L, 0L),
+                     d = as.integer(gsub("^d_", "", get("d"))),
+                     day = as.integer(substr(get("date"), start = 9, stop = 10)),
+                     date = factor(as.Date(get("date"))),
+                     event_name_1 = as.integer(factor(get("event_name_1"))),
+                     event_type_1 = as.integer(factor(get("event_type_1"))),
+                     event_name_2 = as.integer(factor(get("event_name_2"))),
+                     event_type_2 = as.integer(factor(get("event_type_2"))))][
+                       , `:=` (date = NULL,
+                               weekday = NULL)
+                       ]
+
+# merge calendar to dataset
+dataset <- calendar.csv[get("d") >= train_index, ][dataset, on = "d"]
+free()
+
+
+# merge prices to dataset
+dataset <- sell_prices.csv[dataset, on = c("store_id", "item_id", "wm_yr_wk")][, wm_yr_wk := NULL]
+free()
+
+# create more features
+demand_features <- function(X) {
+  X %>% 
+    group_by(id) %>% 
+    #create some lag variables 
+    mutate(
+      lag_1 = dplyr::lag(demand, 1),
+      lag_2 = dplyr::lag(demand, 2),
+      lag_3 = dplyr::lag(demand, 3),
+      lag_4 = dplyr::lag(demand, 4),
+      lag_5 = dplyr::lag(demand, 5),
+      lag_6 = dplyr::lag(demand, 6),
+      lag_7 = dplyr::lag(demand, 7),
+      mean_last3 = (lag_1+lag_2+lag_3)/3,
+      mean_last7 = (lag_1+lag_2+lag_3+lag_4+lag_5+lag_6+lag_7)/7,
+      lag_14 = dplyr::lag(demand, 14),
+      lag_21 = dplyr::lag(demand, 21),
+      lag_28 = dplyr::lag(demand, 28)) %>% 
+    ungroup()%>%
+    
+    #create more features regarding the demand
+    group_by(item_id)%>%
+    mutate(
+      demand_min = min(demand, na.rm = FALSE),
+      demand_mean = mean(demand, na.rm = FALSE),
+      demand_median = median(demand, na.rm = FALSE),
+      demand_max = max(demand, na.rm = FALSE),
+      demand_mode = Mode(demand),
+      demand_sd = sd(demand, na.rm = FALSE)
+    )%>%
+    ungroup()
+  
+  
+}
+
+#create features before reducing dataset to avoid NA's
+dataset <- dataset %>%
+  demand_features()
+
+#clear memory and remove CSV
+rm(sales_train_validation.csv)
+rm(calendar.csv)
+rm(sell_prices.csv)
+free()
+
+#filter only the items of store CA_3
+dataset = filter(dataset, store_id == "CA_3")
+
+#drop un-nessecary colums store_id, state id, cat_id, dept_id & id
+dataset = select(dataset, -store_id)
+dataset = select(dataset, -state_id)
+dataset = select(dataset, -cat_id)
+dataset = select(dataset, -dept_id)
+dataset = select(dataset, -id)
+
+#clear memory again
+free()
+
+#convert item id of the dataset into numeric format (starts at 1438)
+dataset$item_id = as.integer(dataset$item_id)
+
+#create training for the more complex dataset
+#create a list of all the items
+item_id_df <- data.frame(dataset$item_id)
+item_id_df <- unique(item_id_df)
+
+#split the training data
+#split the training data
+train_dataset = filter(dataset, d >= 1431 & d < 1886)
+intermediate_test_dataset_1 = filter(dataset, d >= 1800 & d <= 1885)
+intermediate_test_dataset_2 = filter(dataset, d == 1886)
+test_dataset = filter(dataset, d > 1886)
+
+#clear memory and maybe remove dataset
+free()
+
+#remove demand and all the lag metrics from the testset as they would not be available with the exception of the first day (1886)
+test_dataset[,17:34] <-NA
+intermediate_test_dataset_1 = rbind(intermediate_test_dataset_1,intermediate_test_dataset_2, test_dataset)
+
+#rename complete dataset
+complete_test_dataset = intermediate_test_dataset_1
+```
+
+
+
+
+
