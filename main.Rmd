@@ -1,12 +1,12 @@
 ---
-title: "M5-Forecesting"
-author: "Gruppe"
-date: "24 4 2020"
+title: "M5-Forecasting"
+author: "Baumann, David; Bötsch, Florian; Raabe, Moritz; Lochner, Johannes"
+date: "17. Mai 2020"
 output: html_document
 ---
 
-## Prepare R
-##### Libraries
+## Vorbreitung von R
+##### R Libraries
 ```{r Importing Libraries, eval = FALSE, echo = TRUE, error = FALSE}
 #importing relevant libraries
 library(tidyverse)
@@ -22,9 +22,8 @@ library(parallel)
 ```
 
 
-##### Helper Functions
+##### Definierung von Helper Functions
 ```{r Helper Functions, eval = FALSE, echo = TRUE}  
-###helper functions
 #define function for clearing memory
 free <- function() invisible(gc())
 
@@ -34,30 +33,24 @@ Mode <- function(x) {
   ux[which.max(tabulate(match(x, ux)))]
 }
 
+#define method for RMSE calculation
 RMSE=function(actual, predicted){
   rmse = sqrt(mean((actual-predicted)^2))
   return(rmse)
 }
 ```
 
-
-##### Read the data
+##  Datensatz vorbereiten
+##### Import der Datensätze
 ```{r read in the data, eval = FALSE, echo = TRUE}  
 #read in the data 
 sales_train_validation.csv <- fread("sales_train_validation.csv", stringsAsFactors = TRUE)
 calendar.csv <- fread("calendar.csv", stringsAsFactors = TRUE)
 sell_prices.csv <- fread("sell_prices.csv", stringsAsFactors = TRUE)
-}
 ```
 
-
-## Prepare Dataset
-##### Creating Simple Dataset
+##### Erstellung des simplen Datensets für naive Ansätze
 ```{r Creating simple dataset, eval = FALSE, echo = TRUE}  
-###########################################################################################
-### Creating simple dataset
-###########################################################################################
-
 #create simple dataset
 #create simple (for naive, snaive and arima) 
 #do some data wrangling
@@ -96,7 +89,8 @@ train_simple = simple_dataset[-index,]
 test_simple = simple_dataset[index,]
 ```
 
-##### Creating complex dataset
+##### Erstellung der komplexen Datensets für ML Ansätze
+mit zusätzlichen Features, wie Lags
 ```{r Creating complex dataset, eval = FALSE, echo = TRUE}  
 #create complex dataset
 dataset <- data.table::melt.data.table(
@@ -186,8 +180,6 @@ demand_features <- function(X) {
       demand_sd = sd(demand, na.rm = FALSE)
     )%>%
     ungroup()
-  
-  
 }
 
 #create features before reducing dataset to avoid NA's
@@ -238,7 +230,8 @@ intermediate_test_dataset_1 = rbind(intermediate_test_dataset_1,intermediate_tes
 #rename complete dataset
 complete_test_dataset = intermediate_test_dataset_1
 ```
-
+## The Loop
+##### Prepare for the loop
 ```{r Looping through the data, eval = FALSE, echo = TRUE, error = FALSE}
 iterations = 3049   # number of products
 
@@ -251,7 +244,14 @@ results_matrix[,6]= item_id_df$dataset.item_id
 N_cpu = detectCores()
 ```
 
-##### Prepare for the loop
+##### Looping Louie
+The magic loop,
+forecasting for each product
+1. Naive
+2. SNaive
+3. ARIMA
+4. Random Forest
+5. XGBoost
 ```{r The Loop, eval = FALSE, echo = TRUE, error = FALSE}
 i=1
 #loop through the dataä+
@@ -382,7 +382,7 @@ for (i in 1:iterations){
   subset_test_df[87:114,]$demand_sd = subset_test_df[86,]$demand_sd
   subset_test_df[87:114,]$demand_mode = subset_test_df[86,]$demand_mode
   
-  #predict in loop -> Better description needed
+  #predict in loop -> Better description needed @moritz
   x = 1
   for (x in 1:28) {
     # 1885 is the last training day
@@ -418,7 +418,9 @@ for (i in 1:iterations){
       subset_test_df[next_day,]$lag_28 = subset_test_df[(next_day-28),]$demand
       
       #calculate means
-      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 + subset_test_df[next_day,]$lag_2 + subset_test_df[next_day,]$lag_3)/3
+      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 +
+                                                subset_test_df[next_day,]$lag_2 +
+                                                subset_test_df[next_day,]$lag_3)/3
       subset_test_df[next_day,]$mean_last7 = (subset_test_df[next_day,]$lag_1 + 
                                                 subset_test_df[next_day,]$lag_2 + 
                                                 subset_test_df[next_day,]$lag_3 +
@@ -480,7 +482,11 @@ for (i in 1:iterations){
                     , nthreads = N_cpu, nfold = 5, early_stopping_round = 10, verbose = 0)
   
   #build the model
-  model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration , importance = TRUE, verbose = 0)
+  model_xgb <- xgboost(data = trainDMatrix,
+                       param = params,
+                       nrounds = xgb.tab$best_iteration,
+                       importance = TRUE,
+                       verbose = 0)
   
   #initialize predictions matrix to store individual predictions
   predictions_matrix_xgb = matrix(nrow = 28, ncol = 1)
@@ -552,7 +558,9 @@ for (i in 1:iterations){
       subset_test_df[next_day,]$lag_28 = subset_test_df[(next_day-28),]$demand
       
       #calculate means
-      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 + subset_test_df[next_day,]$lag_2 + subset_test_df[next_day,]$lag_3)/3
+      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 +
+                                                subset_test_df[next_day,]$lag_2 +
+                                                subset_test_df[next_day,]$lag_3)/3
       subset_test_df[next_day,]$mean_last7 = (subset_test_df[next_day,]$lag_1 + 
                                                 subset_test_df[next_day,]$lag_2 + 
                                                 subset_test_df[next_day,]$lag_3 +
@@ -581,27 +589,8 @@ for (i in 1:iterations){
 }
 ```
 
-
-
-
-```{r #######################################, eval = FALSE, echo = TRUE, error = FALSE}
-
-
-
-```
-
-```{r ####################, eval = FALSE, echo = TRUE, error = FALSE}
-
-```
-
-```{r ######, eval = FALSE, echo = TRUE, error = FALSE}
-
-```
-
-```{r ##############, eval = FALSE, echo = TRUE, error = FALSE}
-
-```
-
+## Auswertung der Ergebnisse
+Bennenung der Results Matrix & Berechnung des RMSE
 ```{r Calculate the results, eval = FALSE, echo = TRUE, error = FALSE}
 #calculate mean of results (#Needs to be weighted depending on how much the product has been sold)
 mean(results_matrix[1:iterations,1])
@@ -622,7 +611,7 @@ names(results_df)[5] <- "XGBoost"
 names(results_df)[6] <- "item_id"
 ```
 
-Gewichtung
+Erstellung von Gewichtungsfaktoren
 ```{r weighting of results, eval = FALSE, echo = TRUE, error = FALSE}
 #create weighting factor as some products are sold a lot more than others
 dataset <- dataset %>%
@@ -650,7 +639,10 @@ sum(weighted_factors_df$dataset.weighted_sales_percentage)
 
 #add weighting factors to results
 results_df$weighting_factor = weighted_factors_df[1:iterations,]$dataset.weighted_sales_percentage
+```
 
+Anwendung der Gewichtungsfaktoren
+```{r calculating with weighting of results, eval = FALSE, echo = TRUE, error = FALSE}
 #create weighted results
 results_df$Naive_weighted = results_df$Naive * results_df$weighting_factor
 results_df$SNaive_weighted = results_df$SNaive * results_df$weighting_factor
@@ -666,7 +658,7 @@ Random_Forest_result = sum(results_df$`Random Forest_weighted`)
 XGBoost_result = sum(results_df$XGBoost_weighted)
 ```
 
-exclude pruducts, where ARIMA had errors for better comparability
+zur besseren Vergleichbarkeit werden Produkte ausgeschlossen, bei denen ARIMA Fehler aufwies.
 ```{r exclude arima errors, eval = FALSE, echo = TRUE, error = FALSE}
 # Calculate without ARIMA errors
 results_withoutNA_df = results_df[!(is.na(results_df$Autoarima)),]

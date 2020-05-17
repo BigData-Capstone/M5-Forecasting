@@ -530,7 +530,9 @@ for (i in 1:iterations){
       subset_test_df[next_day,]$lag_28 = subset_test_df[(next_day-28),]$demand
       
       #calculate means
-      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 + subset_test_df[next_day,]$lag_2 + subset_test_df[next_day,]$lag_3)/3
+      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 +
+                                                subset_test_df[next_day,]$lag_2 +
+                                                subset_test_df[next_day,]$lag_3)/3
       subset_test_df[next_day,]$mean_last7 = (subset_test_df[next_day,]$lag_1 + 
                                                 subset_test_df[next_day,]$lag_2 + 
                                                 subset_test_df[next_day,]$lag_3 +
@@ -650,11 +652,13 @@ mean(results_withoutNA_df$XGBoost)
 
 
 
+#####################################################################
+## To save/load the .RData & export resuluts as CSV
+#####################################################################
 
 # fwrite(results_df, "samstagfinal-v01/20200516_samstag-final.csv")
 # save.image("~/R-Code/M5-Forecasting/samstagfinal-v01/.RData")
 # load("~/R-Code/M5-Forecasting/samstagfinal-v01/.RData")
-
 
 
 #####################################################################
