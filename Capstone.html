@@ -369,6 +369,7 @@ summary {
 </div>
 
 
+<p>Link zur Challenge: <a href="https://www.kaggle.com/c/m5-forecasting-accuracy">link</a></p>
 <div id="vorbreitung-von-r" class="section level2">
 <h2>Vorbreitung von R</h2>
 <div id="r-libraries" class="section level5">
@@ -412,8 +413,8 @@ sales_train_validation.csv &lt;- fread(&quot;sales_train_validation.csv&quot;, s
 calendar.csv &lt;- fread(&quot;calendar.csv&quot;, stringsAsFactors = TRUE)
 sell_prices.csv &lt;- fread(&quot;sell_prices.csv&quot;, stringsAsFactors = TRUE)</code></pre>
 </div>
-<div id="erstellung-des-simplen-datensetts-für-naive-ansätze" class="section level5">
-<h5>Erstellung des simplen Datensetts für naive Ansätze</h5>
+<div id="erstellung-des-simplen-datensets-für-naive-ansätze" class="section level5">
+<h5>Erstellung des simplen Datensets für naive Ansätze</h5>
 <pre class="r"><code>#create simple dataset
 #create simple (for naive, snaive and arima) 
 #do some data wrangling
@@ -609,7 +610,12 @@ N_cpu = detectCores()</code></pre>
 </div>
 <div id="looping-louie" class="section level5">
 <h5>Looping Louie</h5>
-<p>The magic loop, forecasting for each product 1. Naive 2. SNaive 3. ARIMA 4. Random Forest 5. XGBoost</p>
+<p>The magic loop, forecasting for each product<br />
+1. Naive<br />
+2. SNaive<br />
+3. ARIMA<br />
+4. Random Forest<br />
+5. XGBoost</p>
 <pre class="r"><code>i=1
 #loop through the dataä+
 for (i in 1:iterations){

@@ -4,6 +4,8 @@ author: "Baumann, David; Bötsch, Florian; Raabe, Moritz; Lochner, Johannes"
 date: "17. Mai 2020"
 output: html_document
 ---
+Link zur Challenge: [link](https://www.kaggle.com/c/m5-forecasting-accuracy)
+
 
 ## Vorbreitung von R
 ##### R Libraries
@@ -245,13 +247,12 @@ N_cpu = detectCores()
 ```
 
 ##### Looping Louie
-The magic loop,
-forecasting for each product
-1. Naive
-2. SNaive
-3. ARIMA
-4. Random Forest
-5. XGBoost
+The magic loop, forecasting for each product  
+1. Naive  
+2. SNaive  
+3. ARIMA  
+4. Random Forest  
+5. XGBoost  
 ```{r The Loop, eval = FALSE, echo = TRUE, error = FALSE}
 i=1
 #loop through the dataä+
