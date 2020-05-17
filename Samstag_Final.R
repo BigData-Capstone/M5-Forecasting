@@ -232,7 +232,7 @@ N_cpu = detectCores()
 computing_start_time <- Sys.time()
 
 i=1
-#loop through the data
+#loop through the dataä+
 for (i in 1:iterations){
   #########################################################################################
   ### Data Preparation for simple approaches

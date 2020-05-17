@@ -51,8 +51,8 @@ sell_prices.csv <- fread("sell_prices.csv", stringsAsFactors = TRUE)
 ```
 
 
-## Prepare Datasat
-### Creating Simple Dataset
+## Prepare Dataset
+##### Creating Simple Dataset
 ```{r Creating simple dataset, eval = FALSE, echo = TRUE}  
 ###########################################################################################
 ### Creating simple dataset
@@ -96,7 +96,7 @@ train_simple = simple_dataset[-index,]
 test_simple = simple_dataset[index,]
 ```
 
-### Creating complex dataset
+##### Creating complex dataset
 ```{r Creating complex dataset, eval = FALSE, echo = TRUE}  
 #create complex dataset
 dataset <- data.table::melt.data.table(
@@ -239,7 +239,460 @@ intermediate_test_dataset_1 = rbind(intermediate_test_dataset_1,intermediate_tes
 complete_test_dataset = intermediate_test_dataset_1
 ```
 
+```{r Looping through the data, eval = FALSE, echo = TRUE, error = FALSE}
+iterations = 3049   # number of products
+
+#preparation for looping through the data
+#create results matrix
+results_matrix <- matrix(ncol=6, nrow=iterations)
+results_matrix[,6]= item_id_df$dataset.item_id
+
+#detect the number of cores for multicore operation
+N_cpu = detectCores()
+```
+
+##### Prepare for the loop
+```{r The Loop, eval = FALSE, echo = TRUE, error = FALSE}
+i=1
+#loop through the dataä+
+for (i in 1:iterations){
+  #########################################################################################
+  ### Data Preparation for simple approaches
+  #########################################################################################
+  iteration_start_time <- Sys.time()
+  #create training data frame
+  new_train = train_simple[,i]
+  #convert data
+  new_train <- as.numeric(new_train)
+  new_train <- as.data.frame(new_train)
+  #rename column
+  names(new_train)[1] <- "quantity"
+  
+  #create dataframe for test
+  new_test = test_simple[,i]
+  new_test <- as.numeric(new_test)
+  new_test <- as.data.frame(new_test)
+  names(new_test)[1] <- "quantity"
+  
+  # Create time series data
+  train_product_ts = ts(new_train$quantity, frequency = 7)
+  
+  #########################################################################################
+  ### Naive Forecast
+  #########################################################################################
+  
+  # Naive Forecast 
+  #make forecast and assess RMSE
+  predicted = naive(train_product_ts, h = 28)$mean
+  
+  #convert to df for further calculations
+  predicted_df = as.data.frame(predicted)
+  
+  
+  #calculate rmse 
+  actual = new_test[,1]
+  predicted = predicted_df[,1]
+  performance = RMSE(actual, predicted)
+  
+  #write performance into results matrix
+  results_matrix[i,1] = performance
+  
+  #########################################################################################
+  ### SNaive Forecast
+  #########################################################################################
+  
+  
+  #### SNaive Forecast 
+  #make forecast and assess RMSE
+  snaive_predicted = snaive(train_product_ts, h = 28)$mean
+  
+  #convert to df for further calculations
+  snaive_predicted_df = as.data.frame(snaive_predicted)
+  
+  
+  #calculate rmse 
+  actual = new_test[,1]
+  snaive_predicted = snaive_predicted_df[,1]
+  performance = RMSE(actual, snaive_predicted)
+  
+  #write results into results matrix
+  results_matrix[i,2] = performance
+  
+  #########################################################################################
+  ### Arima Forecast
+  #########################################################################################
+  
+  #only try, as there is sometimes an error (like element 340)
+  try({
+    autoarima = auto.arima(train_product_ts)
+    autoarima_predicted = forecast(autoarima, train_product_ts, h = 28)$mean
+    
+    #convert to df for further calculations
+    autoarima_predicted_df = as.data.frame(autoarima_predicted)
+    
+    #loop to calculate rmse for every day
+    actual = new_test[,1]
+    autoarima_predicted = autoarima_predicted_df[,1]
+    performance = RMSE(actual, autoarima_predicted)
+    
+    #write results into results matrix
+    results_matrix[i,3] = performance
+  }, silent = FALSE)
+  
+  
+  #########################################################################################
+  ### Random Forest Forecast
+  #########################################################################################
+  ##select item from item list
+  item_id = item_id_df[i,1]
+  
+  #filter for the item variable to get the train set 
+  subset_train = filter(train_dataset, item_id == !!item_id)
+  subset_train_df = as.data.frame(subset_train)
+  
+  #remove price to avoid missing values
+  subset_train_df = select(subset_train_df,-sell_price)
+  
+  #create model
+  rangermodel = ranger(formula = demand~ ., data=subset_train_df, num.trees = 1000, num.threads = N_cpu)
+  
+  #initialize predictions matrix to store individual predictions
+  predictions_matrix_rf = matrix(nrow = 28, ncol = 1)
+  
+  #filter for the item variable to get the test set 
+  subset_test = filter(complete_test_dataset, item_id == !!item_id)
+  
+  #convert to df
+  subset_test_df = as.data.frame(subset_test)
+  
+  #remove price to avoid missing values
+  subset_test_df = select(subset_test_df,-sell_price)
+  
+  #create label for the last 28 predictions
+  subset_test_label = tail(subset_test_df$demand,28)
+  
+  #Fill the last 28 predictions with missing values
+  subset_test_df[87:114,]$demand <- NA
+  
+  #fill the statistics of the demand into the dataframe
+  subset_test_df[87:114,]$demand_min = subset_test_df[86,]$demand_min
+  subset_test_df[87:114,]$demand_max = subset_test_df[86,]$demand_max
+  subset_test_df[87:114,]$demand_median = subset_test_df[86,]$demand_median
+  subset_test_df[87:114,]$demand_mean = subset_test_df[86,]$demand_mean
+  subset_test_df[87:114,]$demand_sd = subset_test_df[86,]$demand_sd
+  subset_test_df[87:114,]$demand_mode = subset_test_df[86,]$demand_mode
+  
+  #predict in loop -> Better description needed
+  x = 1
+  for (x in 1:28) {
+    # 1885 is the last training day
+    counter = 1885 + x  
+    
+    #only filter one day for the testset
+    test_1_day = filter(subset_test_df, d == !!counter)
+    
+    #predict -> mit test_1 
+    pred_rf = predict(rangermodel,data = test_1_day)
+    #schreibe es in predictions matrix
+    predictions_matrix_rf[x,1] = pred_rf$predictions
+    #update dataframe with predicted demand
+    current_day = 86 + x #86 is the row last training day
+    
+    #substitution for prediction -> Demand is in column 15
+    subset_test_df[current_day,15] = pred_rf$predictions
+    
+    #select the next day to calculate lags
+    next_day = current_day +1
+    
+    if(next_day < 115){
+      #calculate lag for next day
+      subset_test_df[next_day,]$lag_1 = subset_test_df[(next_day-1),]$demand
+      subset_test_df[next_day,]$lag_2 = subset_test_df[(next_day-2),]$demand
+      subset_test_df[next_day,]$lag_3 = subset_test_df[(next_day-3),]$demand
+      subset_test_df[next_day,]$lag_4 = subset_test_df[(next_day-4),]$demand
+      subset_test_df[next_day,]$lag_5 = subset_test_df[(next_day-5),]$demand
+      subset_test_df[next_day,]$lag_6 = subset_test_df[(next_day-6),]$demand
+      subset_test_df[next_day,]$lag_7 = subset_test_df[(next_day-7),]$demand
+      subset_test_df[next_day,]$lag_14 = subset_test_df[(next_day-14),]$demand
+      subset_test_df[next_day,]$lag_21 = subset_test_df[(next_day-21),]$demand
+      subset_test_df[next_day,]$lag_28 = subset_test_df[(next_day-28),]$demand
+      
+      #calculate means
+      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 + subset_test_df[next_day,]$lag_2 + subset_test_df[next_day,]$lag_3)/3
+      subset_test_df[next_day,]$mean_last7 = (subset_test_df[next_day,]$lag_1 + 
+                                                subset_test_df[next_day,]$lag_2 + 
+                                                subset_test_df[next_day,]$lag_3 +
+                                                subset_test_df[next_day,]$lag_4 + 
+                                                subset_test_df[next_day,]$lag_5 + 
+                                                subset_test_df[next_day,]$lag_6 +
+                                                subset_test_df[next_day,]$lag_7)/7
+    }
+    
+    
+  }
+  
+  
+  
+  #calculate RMSE
+  actual = as.matrix(subset_test_label)
+  predicted = predictions_matrix_rf
+  performance = RMSE(actual, predicted)
+  
+  #write results into results matrix
+  results_matrix[i,4] = performance
+  
+  
+  #########################################################################################
+  ### ML Approach Forecast: XGboost 
+  #########################################################################################
+  ##select item from item list
+  item_id = item_id_df[i,1]
+  
+  #filter for this variable to get the train set 
+  subset_train = filter(train_dataset, item_id == !!item_id)
+  subset_train = as.data.frame(subset_train)
+  
+  #Assign label
+  train_label = subset_train$demand
+  
+  #remove label from dataset
+  xg_train_dataset = select(subset_train, -demand)
+  
+  #convert datasets to matrix
+  x_train = as.matrix(xg_train_dataset)
+
+  #Create input for xgboost
+  trainDMatrix <- xgb.DMatrix(data = x_train, label = train_label)
+  
+  #set the parameter
+  params <- list(booster = "gbtree",
+                 objective = "reg:linear",
+                 eval_metric = "rmse",
+                 eta = 0.05,
+                 max_depth = 1,
+                 min_child_weight = 8,
+                 colsample_bytree = 1,
+                 gamma = 0.15,
+                 subsample = 0.8
+  )
+  
+  xgb.tab <- xgb.cv(data=trainDMatrix, param = params, evaluation = "rmse", nrounds = 100
+                    , nthreads = N_cpu, nfold = 5, early_stopping_round = 10, verbose = 0)
+  
+  #build the model
+  model_xgb <- xgboost(data = trainDMatrix, param = params, nrounds = xgb.tab$best_iteration , importance = TRUE, verbose = 0)
+  
+  #initialize predictions matrix to store individual predictions
+  predictions_matrix_xgb = matrix(nrow = 28, ncol = 1)
+  
+  #filter for the item variable to get the test set 
+  subset_test = filter(complete_test_dataset, item_id == !!item_id)
+  
+  #convert to df
+  subset_test_df = as.data.frame(subset_test)
+  
+  #create label for the last 28 predictions
+  subset_test_label = tail(subset_test_df$demand,28)
+  
+  #Fill the last 28 predictions with missing values
+  subset_test_df[87:114,]$demand <- NA
+  
+  #fill the statistics of the demand into the dataframe
+  subset_test_df[87:114,]$demand_min = subset_test_df[86,]$demand_min
+  subset_test_df[87:114,]$demand_max = subset_test_df[86,]$demand_max
+  subset_test_df[87:114,]$demand_median = subset_test_df[86,]$demand_median
+  subset_test_df[87:114,]$demand_mean = subset_test_df[86,]$demand_mean
+  subset_test_df[87:114,]$demand_sd = subset_test_df[86,]$demand_sd
+  subset_test_df[87:114,]$demand_mode = subset_test_df[86,]$demand_mode
+  
+  #predict in loop -> Better description needed
+  x = 1
+  for (x in 1:28) {
+    # 1885 is the last training day
+    counter = 1885 + x  
+    
+    #only filter one day for the testset
+    test_1_day = filter(subset_test_df, d == !!counter)
+    
+    #remove demand column
+    test_1_day = select(test_1_day, -demand)
+ 
+    #convert to matrix 
+    test_1_day_matrix = as.matrix(test_1_day)
+
+    #predict -> mit test_1 
+    xgb_predicted = predict(model_xgb, newdata = test_1_day_matrix)
+    
+    #convert to matrix
+    xgb_predicted_result= as.matrix(xgb_predicted)
+    
+    #schreibe es in predictions matrix
+    predictions_matrix_xgb[x,1] = xgb_predicted_result
+    
+    #update dataframe with predicted demand
+    current_day = 86 + x #86 is the row last training day
+    
+    #substitution for prediction -> Demand is in column 15
+    subset_test_df[current_day,15] = xgb_predicted_result
+    
+    #select the next day to calculate lags
+    next_day = current_day +1
+    
+    if(next_day < 115){
+      #calculate lag for next day
+      subset_test_df[next_day,]$lag_1 = subset_test_df[(next_day-1),]$demand
+      subset_test_df[next_day,]$lag_2 = subset_test_df[(next_day-2),]$demand
+      subset_test_df[next_day,]$lag_3 = subset_test_df[(next_day-3),]$demand
+      subset_test_df[next_day,]$lag_4 = subset_test_df[(next_day-4),]$demand
+      subset_test_df[next_day,]$lag_5 = subset_test_df[(next_day-5),]$demand
+      subset_test_df[next_day,]$lag_6 = subset_test_df[(next_day-6),]$demand
+      subset_test_df[next_day,]$lag_7 = subset_test_df[(next_day-7),]$demand
+      subset_test_df[next_day,]$lag_14 = subset_test_df[(next_day-14),]$demand
+      subset_test_df[next_day,]$lag_21 = subset_test_df[(next_day-21),]$demand
+      subset_test_df[next_day,]$lag_28 = subset_test_df[(next_day-28),]$demand
+      
+      #calculate means
+      subset_test_df[next_day,]$mean_last3 = (subset_test_df[next_day,]$lag_1 + subset_test_df[next_day,]$lag_2 + subset_test_df[next_day,]$lag_3)/3
+      subset_test_df[next_day,]$mean_last7 = (subset_test_df[next_day,]$lag_1 + 
+                                                subset_test_df[next_day,]$lag_2 + 
+                                                subset_test_df[next_day,]$lag_3 +
+                                                subset_test_df[next_day,]$lag_4 + 
+                                                subset_test_df[next_day,]$lag_5 + 
+                                                subset_test_df[next_day,]$lag_6 +
+                                                subset_test_df[next_day,]$lag_7)/7
+    }
+    
+    
+  }
+  #Calculate rmse 
+  actual = subset_test_label
+  predicted = predictions_matrix_xgb
+  performance = RMSE(actual, predicted)
+  
+  #write results into results matrix
+  results_matrix[i,5] = performance
+  
+  #free memory
+  free()
+  #give an overview of progress
+  iteration_end_time <- Sys.time()
+  iteration_time <- iteration_end_time - iteration_start_time
+  print(c(i,iteration_time))
+}
+```
 
 
 
 
+```{r #######################################, eval = FALSE, echo = TRUE, error = FALSE}
+
+
+
+```
+
+```{r ####################, eval = FALSE, echo = TRUE, error = FALSE}
+
+```
+
+```{r ######, eval = FALSE, echo = TRUE, error = FALSE}
+
+```
+
+```{r ##############, eval = FALSE, echo = TRUE, error = FALSE}
+
+```
+
+```{r Calculate the results, eval = FALSE, echo = TRUE, error = FALSE}
+#calculate mean of results (#Needs to be weighted depending on how much the product has been sold)
+mean(results_matrix[1:iterations,1])
+mean(results_matrix[1:iterations,2])
+mean(results_matrix[1:iterations,3])
+mean(results_matrix[1:iterations,4])
+mean(results_matrix[1:iterations,5])
+View(results_matrix)
+#convert matrix to dataframe
+results_df  = as.data.frame(results_matrix[1:iterations,])
+
+#rename columns
+names(results_df)[1] <- "Naive"
+names(results_df)[2] <- "SNaive"
+names(results_df)[3] <- "Autoarima"
+names(results_df)[4] <- "Random Forest"
+names(results_df)[5] <- "XGBoost"
+names(results_df)[6] <- "item_id"
+```
+
+Gewichtung
+```{r weighting of results, eval = FALSE, echo = TRUE, error = FALSE}
+#create weighting factor as some products are sold a lot more than others
+dataset <- dataset %>%
+  mutate(
+    total_sales_per_store = sum(demand)) %>%
+  group_by(item_id) %>%
+  mutate(
+    total_sales_per_item = sum(demand),
+    weighted_sales_percentage = total_sales_per_item/total_sales_per_store
+  )%>%
+  ungroup()
+View(dataset)
+
+#select the relevant columns
+weighted_factors_df <- data.frame(dataset$item_id,dataset$weighted_sales_percentage, dataset$d)
+
+#filter for one day as the values are repeated for every day
+weighted_factors_df <- weighted_factors_df %>%
+  filter(dataset.d == 1350) %>%
+  #remove helper column d
+  select(-dataset.d)
+
+#make sure they add up to one
+sum(weighted_factors_df$dataset.weighted_sales_percentage)
+
+#add weighting factors to results
+results_df$weighting_factor = weighted_factors_df[1:iterations,]$dataset.weighted_sales_percentage
+
+#create weighted results
+results_df$Naive_weighted = results_df$Naive * results_df$weighting_factor
+results_df$SNaive_weighted = results_df$SNaive * results_df$weighting_factor
+results_df$Autoarima_weighted = results_df$Autoarima * results_df$weighting_factor
+results_df$`Random Forest_weighted` = results_df$`Random Forest`* results_df$weighting_factor
+results_df$XGBoost_weighted = results_df$XGBoost * results_df$weighting_factor
+
+#calculate the sum of all weighted factors
+Naive_result = sum(results_df$Naive_weighted) 
+SNaive_result = sum(results_df$SNaive_weighted) 
+Autoarima_result = sum(results_df$Autoarima_weighted)
+Random_Forest_result = sum(results_df$`Random Forest_weighted`) 
+XGBoost_result = sum(results_df$XGBoost_weighted)
+```
+
+exclude pruducts, where ARIMA had errors for better comparability
+```{r exclude arima errors, eval = FALSE, echo = TRUE, error = FALSE}
+# Calculate without ARIMA errors
+results_withoutNA_df = results_df[!(is.na(results_df$Autoarima)),]
+
+#calculate the sum of all weighted factors
+Naive_result_withoutNA = sum(results_withoutNA_df$Naive_weighted) 
+SNaive_result_withoutNA = sum(results_withoutNA_df$SNaive_weighted) 
+Autoarima_result_withoutNA = sum(results_withoutNA_df$Autoarima_weighted, na.rm = TRUE)
+Random_Forest_result_withoutNA = sum(results_withoutNA_df$`Random Forest_weighted`) 
+XGBoost_result_withoutNA = sum(results_withoutNA_df$XGBoost_weighted) 
+```
+
+#### Weighted Results
+```{r weighted Results , eval = TRUE, echo = TRUE, error = FALSE, results = "hold"}
+Naive_result_withoutNA
+SNaive_result_withoutNA
+Autoarima_result_withoutNA
+Random_Forest_result_withoutNA
+XGBoost_result_withoutNA
+```
+
+#### Unweighted Results
+```{r ###, eval = TRUE, echo = TRUE, error = FALSE, results = "hold"}
+mean(results_withoutNA_df$Naive)
+mean(results_withoutNA_df$SNaive)
+mean(results_withoutNA_df$Autoarima)
+mean(results_withoutNA_df$`Random Forest`)
+mean(results_withoutNA_df$XGBoost)
+```
