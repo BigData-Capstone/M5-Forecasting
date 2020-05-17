@@ -1,14 +1,38 @@
 ---
-title: "M5-Forecasting"
+title: "M5-Forecasting Accuracy"
 author: "Baumann, David; Bötsch, Florian; Raabe, Moritz; Lochner, Johannes"
 date: "17. Mai 2020"
-output: html_document
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+    code_folding: "show"
 ---
-Link zur Challenge: [link](https://www.kaggle.com/c/m5-forecasting-accuracy)
+
+<style>
+body {
+text-align: justify}
+</style>
+
+<br>
+
+# Problemstellung: Die M5 Accuracy Challenge <a name="the-challenge"></a>
+
+Walmart ist der grösste Einzelhändler der Welt. In ca. 11.500 Stores in 27 Ländern kaufen jede Woche über 250 Mio. Kunden Lebensmittel und Waren aller Art ein. Walmart betreibt in erster Linie sogenannte Superstores, die sich durch eine sehr grosse Produktpalette auszeichnen. Gerade durch die extreme Produktvielfalt sind die Lagerkosten für Walmart enorm. Daher ist das Unternehmen besonders daran interessiert, so wenig Produkte wie möglich, aber trotzdem so viele wie nötig auf Vorrat zu halten.  
+Daher hat Walmart die M5 Accuracy Challenge auf Kaggle gestartet. Ziel der Challenge ist die möglichst genaue Vorhersage von Absatzzahlen. Im Zuge dessen sollen die Stückzahlen für Produkte aus den drei Produktkategorien Food, Household und Hobby in 10 Stores in 3 US-Staaten für 28 Tage, also 4 Wochen, vorhergesagt werden. Die Besonderheit der aktuellen Challenge im Vergleich zu früheren Challenges ist, dass mit Intermittenz  (einschliesslich 0 Werte) umgegangen werden muss. Der Datensatz enthält also Produkte mit sporadischer Nachfrage, deren Absatzvorhersage wesentlich komplexer ist, als die Vorhersage für Produkte, die regelmässiger abgesetzt werden. Die Kaggle-Challenge ist mit 50.000 USD Preisgeld dotiert.
 
 
-## Vorbreitung von R
-##### R Libraries
+[Link zur Challenge auf Kaggle](https://www.kaggle.com/c/m5-forecasting-accuracy)
+
+<br>
+
+# Vorbereitung von R  <a name="R-Vorbereitung"></a>
+Für die weitere Ausführung des Codes müssen zunächst einige Packages initialisiert werden. Außerdem werden Helper-Functions für die weitere Verwendung im Code definiert.
+<br>
+
+## R Libraries
+
 ```{r Importing Libraries, eval = FALSE, echo = TRUE, error = FALSE}
 #importing relevant libraries
 library(tidyverse)
@@ -23,8 +47,9 @@ library(ranger)
 library(parallel)
 ```
 
+<br>
 
-##### Definierung von Helper Functions
+## Definition von Hilfsfunktionen
 ```{r Helper Functions, eval = FALSE, echo = TRUE}  
 #define function for clearing memory
 free <- function() invisible(gc())
@@ -41,9 +66,55 @@ RMSE=function(actual, predicted){
   return(rmse)
 }
 ```
+<br>
 
-##  Datensatz vorbereiten
-##### Import der Datensätze
+#  Preprocessing des Datensatzes  <a name="import"></a>
+
+## Beschreibung des Datensatzes
+Walmart stellt zur Bearbeitung der Challenge mehrere Datensätze zur Verfügung, die wir zur Bearbeitung zusammengefügt haben.
+
+**calender.csv** stellt Informationen über die Verkaufstage bereit. Dieser Datei ist unter anderem der Wochentag zu entnehmen und ob es sich bei dem Tag um einen Feiertag handelt, oder nicht.
+
+**sales_train_validation.csv** enthält die Verkaufszahlen pro Produkt auf Tagesbasis.
+
+**sell_prices.csv** enthält die Preisinformationen nach Produkt.
+  
+  
+Insgesamt werden 3.049 Produkte in 10 Stores betrachtet. Der Datensatz hat folgende Features:  
+**id**: Dieses Feature beschreibt das Produkt, das Department, die Kategorie, den Store und den Staat, in dem das Produkt verkauft worden ist.   
+**item_id**: Dieses Feature benennt das verkaufte Item.  
+**cat_id**: Dieses Feature gibt Auskunft darüber, ob es sich beim Produkt um ein Food-Item, ein Hobby-Item oder ein Household-Item handelt.  
+**dept_id**: Dieses Feature beschreibt das zugeordnete Dept. näher. Pro Department gibt es mehrere Kategorien.  
+**store_id**: Die Store-ID gibt Auskunft, in welchem Laden das Produkt verkauft worden ist. Insgesamt umfasst der Datensatz Informationen zu Verkäufen in zehn Stores.  
+**state_id**: Dieses Feature verrät, in welchem der drei betrachteten Staaten das Produkt verkauft worden ist - Kalifornien, Texas oder Wisconsin.  
+**sales**: Dieses Feature gibt Auskunft, wie hoch die Anzahl der Verkäufe des Produkts in einem bestimmten Store an einem bestimmten Tag war.  
+**date**: Date benennt das Jahr, den Monat und den Tag des Verkaufs.  
+**sell_price**: Dieses Feature stellt den Stückpreis des Produkts dar.  
+<br>
+
+## Visualisierung des Datensatzes
+Zur Visualisierung des Datensatzes haben wir Tableau verwendet. Hier war es uns besonders wichtig, herauszufinden, welche Trends und Schwankungen die Absätze aufweisen. Preprocessing nach [folgendem Kaggle Notebook](https://www.kaggle.com/mayer79/m5-forecast-tidy-r-catboost).
+<br>
+
+### Analyse der Stückzahlen des gesamten Datensatzes
+![](RMarkdown-media/01Stückzahl_Gesamtdatensatz.png)
+In diesem Dashboard zeigen wir die aggregierten Volumina der Verkäufe. Es fällt auf, dass die Umsätze über die Zeit zunehmen. Die Wochenenden sind besonders umsatzstark, was intuitiv logisch erscheint. Zusätzlich fällt auf, dass die Absätze pro Kalenderwoche stark schwanken - auch das lässt sich intuitiv gut erklären: Walmarts Zielgruppe sind vor allem Personen mit geringem Einkommen, in dieser Zielgruppe nehmen die zur Verfügung stehenden Mittel im Lauf des Monats ab.
+<br>
+
+### Drill Down Trends
+![](RMarkdown-media/02Drill-Down_Trends.png)
+
+Das zweite Dashboard zeigt den selben Zusammenhang, allerdings ist hier ein Drill-Down möglich. Je nach Kategorie und Dept. unterscheiden sich die Umsatztrends leicht voneinander. Ein genauerer Drill-Down ist in der PPT und in Tableau möglich.
+<br>  
+
+### Absatzverteilung nach Stores
+![](RMarkdown-media/03Umsatzverteilung_nach_Stores.png)
+Das dritte Dashboard zeigt auf, wie viele Produkte pro Store verkauft worden sind und wie gross der Anteil jedes einzelnen Stores am Gesamtumsatz war. Zusätzlich erlaubt ein Drill-Down, die Absätze nach Department und nach Kategorie zu betrachten. Es zeigt sich hier, dass Store CA_3 für 17% des Volumens verantwortlich ist. Weshalb wir unsere notwendige Einschränkung in diese Richtung vorgenommen haben.
+
+<br>
+
+## Import der Datensätze für die Vorhersagen
+Zunächst müssen die Datensätze geladen werden. Insgesamt werden drei Datensätze mit den vorher besprochenen Features geladen. Diese stellen die Grundlage für die weiteren Analyseschritte dar. Wie vorher besprochen fokussieren wir uns auf die Verkäufe im Store CA-3 aufgrund der beschränkte Rechenleistung. Um die Berechnung zusätzlich zu beschleunigen, werden nur die letzten 1,5 Jahre für das Training verwendet (Ab Tag 1431). Die letzten 28 Tage dienen als Testset.
 ```{r read in the data, eval = FALSE, echo = TRUE}  
 #read in the data 
 sales_train_validation.csv <- fread("sales_train_validation.csv", stringsAsFactors = TRUE)
@@ -51,13 +122,16 @@ calendar.csv <- fread("calendar.csv", stringsAsFactors = TRUE)
 sell_prices.csv <- fread("sell_prices.csv", stringsAsFactors = TRUE)
 ```
 
-##### Erstellung des simplen Datensets für naive Ansätze
+
+<br>
+
+## Erstellung eines simplen Datensets für naive Ansätze
+Aufgrund der verschiedenen Analyse-Ansätze werden insgesamt zwei Datensätze erstellt, da für die jeweiligen Ansätze ein unterschiedliches Datenformat benötigt wird.
+Für die simpleren Ansätze (Naive, Snaive und Arima) stellen nur die jeweiligen Verkäufe der Vergangenheit des einzelnen Produktes die Trainingsgrundlage dar. Jede Spalte des simpleren Datensets entspricht hier den vergangenen Käufen eines Produktes. Insgesamt hat der Datensatz so 3049 Spalten für die 3049 Produkte.
 ```{r Creating simple dataset, eval = FALSE, echo = TRUE}  
-#create simple dataset
-#create simple (for naive, snaive and arima) 
-#do some data wrangling
+#create simple dataset (for naive, snaive and arima)
 simple_dataset <- sales_train_validation.csv %>% 
-  #eliminate valitrainion to save memory
+  #eliminate validation to save memory
   mutate(id = gsub("_validation", "", id)) %>%
   select(-item_id) %>% 
   select(-dept_id) %>%
@@ -81,8 +155,7 @@ free()
 simple_dataset <- simple_dataset %>%
   row_to_names(row_number = 1)
 
-#only leave last 1,5 years for training as the years before might not be relevant
-
+#only leave last 1,5 years for training as the years before might not be relevant, and due to memory constraints
 simple_dataset = simple_dataset[-c(1:1430),]
 
 #create training data for simple_dataset -> Last 28 days should be predicted
@@ -90,9 +163,15 @@ index = tail(1:nrow(simple_dataset),28)
 train_simple = simple_dataset[-index,]
 test_simple = simple_dataset[index,]
 ```
+<br>
 
-##### Erstellung der komplexen Datensets für ML Ansätze
-mit zusätzlichen Features, wie Lags
+## Erstellung der komplexen Datensets für ML Ansätze
+Für die komplexeren Ansätze (XGBoost und Random Forest) sollen zusätzlich noch Features erstellt, um bessere Forecast-Ergebnisse zu erzielen. Damit diese auch berechnet werden können wird der train_index schon bei Tag 1350 gesetzt, um eine korrekte Berechnung aller Features gewährleisten zu können.  
+Diese Features umfassen die Lags der vergangen 7 Tage sowie die einzelnen Lags vor 14, 21 und 28 Tagen, den Durchschnitt der vergangenen 3 und 7 Tage und abschließend noch einige Features in Bezug auf vergangene Verkaufsstatistiken des Produktes. Gerade letztere sollen als Indikation für mögliche Grenzen in Bezug auf den Forecast gelten. Falls ein Produkt so in der Vergangenheit nicht mehr als 5-mal verkauft wurde, sollte die Wahrscheinlichkeit eines Forecasts von mehr als 5 Verkäufen gering sein.  
+Nach dem Filtern auf den Store CA-3 werden die nun irrelevanten Variablen store- und state-id entfernt, da nur noch ein Store betrachtet wird. Außerdem wurden die Variablen der jeweiligen Kategorien und Departements aufgrund keiner Verbesserung der Vorhersage entfernt.  
+Um später auf alle Items im For-Loop zugreifen zu können, wird ein Data-Frame mit der Item-Id des jeweiligen Produktes erstellt.  
+Abschließend sollen Test- und Trainings-Daten erstellt werden. Als Trainingsdaten dienen die Tage 1431-1885. Aufgrund der etwas komplizierteren Vorgehensweise bezüglich der iterativen Berechnung der Features für die ML-Ansätze, gestaltet sich die Erstellung des Testdatensatzes etwas komplexer, weshalb insgesamt 3 Teil-Datensätze benötigt werden. Intermediate_test_dataset_1 dient hierbei nur als Grundlage für die Berechnung aller Lags und umfasst Daten von Tag 1800-1885. Intermediate_test_dataset_2 umfasst hier den ersten Tag (1886) für die Vorhersage, für welchen noch alle Lags vorhanden sind. Dies ist für die weiteren Tage danach, welche das test_dataset umfassen nicht mehr der Fall. Diese werden deshalb für alle Tage aus dem Datensatz gelöscht und später iterativ berechnet, worauf noch näher im Folgenden eingegangen werden soll. Abschließend werden alle drei Test-Datensätze zusammengefügt. So entsteht nun das komplette Testset.  
+
 ```{r Creating complex dataset, eval = FALSE, echo = TRUE}  
 #create complex dataset
 dataset <- data.table::melt.data.table(
@@ -115,14 +194,16 @@ free()
 data.table::setorder(
   x = dataset,
   cols = "d"
-)
+  )
 free()
 
 #Make sure the dataset is sorted correctly
 stopifnot(!is.unsorted(dataset$d))
 
 # define indices for prediction/evaluation, training and testing set
-train_index <- 1350 # use the last 1.5 yrs for training -> Full 2015 + Half 2016 use a little more data to avoid nas for lag
+
+# use the last 1.5 yrs for training -> Full 2015 + Half 2016 use a little more data to avoid NAs for lag
+train_index <- 1350 
 test_index <- (1913-28) #predict the last 28 days
 
 # reduce data
@@ -184,7 +265,7 @@ demand_features <- function(X) {
     ungroup()
 }
 
-#create features before reducing dataset to avoid NA's
+#create features before reducing dataset to avoid NAs
 dataset <- dataset %>%
   demand_features()
 
@@ -197,7 +278,7 @@ free()
 #filter only the items of store CA_3
 dataset = filter(dataset, store_id == "CA_3")
 
-#drop un-nessecary colums store_id, state id, cat_id, dept_id & id
+#drop unnessecary colums store_id, state id, cat_id, dept_id & id
 dataset = select(dataset, -store_id)
 dataset = select(dataset, -state_id)
 dataset = select(dataset, -cat_id)
@@ -207,7 +288,7 @@ dataset = select(dataset, -id)
 #clear memory again
 free()
 
-#convert item id of the dataset into numeric format (starts at 1438)
+#convert item id of the dataset into numeric format 
 dataset$item_id = as.integer(dataset$item_id)
 
 #create training for the more complex dataset
@@ -222,7 +303,7 @@ intermediate_test_dataset_1 = filter(dataset, d >= 1800 & d <= 1885)
 intermediate_test_dataset_2 = filter(dataset, d == 1886)
 test_dataset = filter(dataset, d > 1886)
 
-#clear memory and maybe remove dataset
+#clear memory
 free()
 
 #remove demand and all the lag metrics from the testset as they would not be available with the exception of the first day (1886)
@@ -232,8 +313,13 @@ intermediate_test_dataset_1 = rbind(intermediate_test_dataset_1,intermediate_tes
 #rename complete dataset
 complete_test_dataset = intermediate_test_dataset_1
 ```
-## The Loop
-##### Prepare for the loop
+
+<br>
+<br>
+
+# Iteratives Forecasting für die einzelnen Produkte <a name="forecast"></a>
+
+## Vorbereitung für das iterative Forecasting
 ```{r Looping through the data, eval = FALSE, echo = TRUE, error = FALSE}
 iterations = 3049   # number of products
 
@@ -246,16 +332,33 @@ results_matrix[,6]= item_id_df$dataset.item_id
 N_cpu = detectCores()
 ```
 
-##### Looping Louie
-The magic loop, forecasting for each product  
-1. Naive  
-2. SNaive  
-3. ARIMA  
-4. Random Forest  
-5. XGBoost  
+Bei der Auswahl der Forecasting-Ansätze war das Ziel ein breites Spektrum verschiedener Forecasting Methoden abzudecken. Die simpleren Ansätze umfassen hierbei Naive, Snaive und Autoarima. Die beiden ersteren dienten als Benchmark für die weiteren Ansätze und treffen Vorhersagen auf Basis von sehr einfachen Regeln. 
+
+<br>
+
+## Iteratives Forecasting
+Insgesamt sollen die Forecasts für 3049 Produkte erstellt werden. Um die Ergebnisse zu speichern wird eine Matrix mit 6 Spalten angelegt. In den ersten 5 Spalten werden die Ergebnisse des jeweiligen Forecasting-Ansatzes gespeichert, wobei die letzte Spalte die Item-Id des jeweiligen Produktes angibt. Um außerdem auf mehrere Prozessoren-Rechenkerne zurückgreifen zu können wird die Anzahl an Kernen bestimmt, um schnellere Berechnungen zu ermöglichen.
+
+ARIMA haben wir gewählt, weil es sich dabei um einen klassischen und dennoch performanten Ansatz handelt, der uns in der Vorlesung nahegelegt worden ist. Zusätzlich haben wir zwei Machine Learning Ansätze verwendet, die wir in der Vorlesung besprochen haben: XGBoost und Random Forest. Beide Ansätze basieren auf Decision Trees.
+<br>
+
+### Simple Forecasting Ansätze: Naive, Snaive und Arima
+Die simplen Forecasting Ansätze folgen jeweils einer ähnlichen Struktur und besitzen die gleiche Vorbereitung der Daten. Für jede Iteration wird die i-te Spalte des Training- und Test-Datensets ausgewählt. Zum Training der Modelle wird dann ein Time-Series Objekt erstellt. Daraufhin folgt für die Ansätze Naive und Snaive direkt die Prediction, wogegen bei Autoarima zunächst ein Auto-Arima Model erstellt wird. Basierend auf diesem Modell wird dann auch für Autoarima eine Vorhersage getroffen. Für alle drei Ergebnisse wird abschließend der RMSE berechnet und in die Resultate-Matrix geschrieben.
+<br>
+
+### ML-Forecasting Ansätze: Random Forest und XGBoost
+Für die ML-Forecasting Ansätze wird auf die Ansätze Random Forest und XGBoost zurückgegriffen. Für die Implementierung des Random Forests wird das Ranger-Paket aufgrund seiner schnelleren Berechnung verwendet, was gerade bei mehr als 3000 Produkten enorm wichtig ist. Für XGBoost wurde außerdem noch mit Hilfe von Grid-Search versucht, optimale Hyper-Parameter zu finden (Siehe XGboost_grid_Search_Optimization.R - [Link zum R Skript](XGboost_grid_Search_Optimization.R)). 
+
+Für jede Iteration wird zunächst das jeweilige Produkt aus dem Item-Id-Dataframe ausgewählt und basierend auf diesem die jeweils relevanten Daten für das Training gefiltert. Für Random Forest wird außerdem noch die Sell-Price Spalte entfernt, da in dieser sporadische NA-Werte auftreten. Für die XGBoost-Implementierung werden die Daten in das XGBoost Format umgewandelt. Außerdem werden dem XGBoost-Model zusätzlich noch die vorher bestimmten Hyper-Parameter bestimmt.  
+
+Im nächsten Schritt wird für den jeweiligen Ansatz und das jeweilige Produkt nun ein Modell erstellt.  Die Erstellung des Testsets folgt einem ähnlichen Muster wie die Erstellung des Training-Datensatzes. Zusätzlich werden noch die bereits berechneten Statistiken bezüglich der Verkaufszahlen hinzugefügt und das Demand-Label entfernt. 
+
+Das Update der Features gestaltet sich nun etwas komplexer, da dieses für den jeweiligen Tag einzeln berechnet wird. Hierzu muss zunächst jeder Tag einzeln herausgefiltert werden. Basierend auf dem einzelnen Tag wird nun für die beiden Modelle eine Prediction durchgeführt. Einerseits wird der vorhergesagte Wert für den einzelnen Tag in die predictions_matrix geschrieben, um diese später mit den tatsächlichen Werten abzugleichen. Andererseits dient die Prediction dazu die Features neu zu berechnen. Es gilt deshalb: Je später die Iteration, desto eher beruhen die berechneten Features auf den durchgeführten Vorhersagen und werden somit etwas ungenauer. Dieser For-Loop wird für jeden der 28 Tage wiederholt.  
+Abschließend wird wie für die simpleren Ansätze auch für die ML-Ansätze der RMSE berechnet und in die Results-Matrix geschrieben. Der Loop wird insgesamt 3049 mal durchgeführt, um Vorhersagen für jedes Produkt einzeln zu erstellen.
+
 ```{r The Loop, eval = FALSE, echo = TRUE, error = FALSE}
 i=1
-#loop through the dataä+
+#loop through the data
 for (i in 1:iterations){
   #########################################################################################
   ### Data Preparation for simple approaches
@@ -282,7 +385,6 @@ for (i in 1:iterations){
   ### Naive Forecast
   #########################################################################################
   
-  # Naive Forecast 
   #make forecast and assess RMSE
   predicted = naive(train_product_ts, h = 28)$mean
   
@@ -302,8 +404,6 @@ for (i in 1:iterations){
   ### SNaive Forecast
   #########################################################################################
   
-  
-  #### SNaive Forecast 
   #make forecast and assess RMSE
   snaive_predicted = snaive(train_product_ts, h = 28)$mean
   
@@ -383,7 +483,7 @@ for (i in 1:iterations){
   subset_test_df[87:114,]$demand_sd = subset_test_df[86,]$demand_sd
   subset_test_df[87:114,]$demand_mode = subset_test_df[86,]$demand_mode
   
-  #predict in loop -> Better description needed @moritz
+  #predict in loop
   x = 1
   for (x in 1:28) {
     # 1885 is the last training day
@@ -394,7 +494,7 @@ for (i in 1:iterations){
     
     #predict -> mit test_1 
     pred_rf = predict(rangermodel,data = test_1_day)
-    #schreibe es in predictions matrix
+    #write in predictions matrix
     predictions_matrix_rf[x,1] = pred_rf$predictions
     #update dataframe with predicted demand
     current_day = 86 + x #86 is the row last training day
@@ -455,7 +555,7 @@ for (i in 1:iterations){
   subset_train = filter(train_dataset, item_id == !!item_id)
   subset_train = as.data.frame(subset_train)
   
-  #Assign label
+  #assign label
   train_label = subset_train$demand
   
   #remove label from dataset
@@ -464,7 +564,7 @@ for (i in 1:iterations){
   #convert datasets to matrix
   x_train = as.matrix(xg_train_dataset)
 
-  #Create input for xgboost
+  #create input for xgboost
   trainDMatrix <- xgb.DMatrix(data = x_train, label = train_label)
   
   #set the parameter
@@ -501,7 +601,7 @@ for (i in 1:iterations){
   #create label for the last 28 predictions
   subset_test_label = tail(subset_test_df$demand,28)
   
-  #Fill the last 28 predictions with missing values
+  #fill the last 28 predictions with missing values
   subset_test_df[87:114,]$demand <- NA
   
   #fill the statistics of the demand into the dataframe
@@ -512,7 +612,7 @@ for (i in 1:iterations){
   subset_test_df[87:114,]$demand_sd = subset_test_df[86,]$demand_sd
   subset_test_df[87:114,]$demand_mode = subset_test_df[86,]$demand_mode
   
-  #predict in loop -> Better description needed
+  #predict in loop
   x = 1
   for (x in 1:28) {
     # 1885 is the last training day
@@ -533,7 +633,7 @@ for (i in 1:iterations){
     #convert to matrix
     xgb_predicted_result= as.matrix(xgb_predicted)
     
-    #schreibe es in predictions matrix
+    #write in predictions matrix
     predictions_matrix_xgb[x,1] = xgb_predicted_result
     
     #update dataframe with predicted demand
@@ -573,7 +673,7 @@ for (i in 1:iterations){
     
     
   }
-  #Calculate rmse 
+  #calculate rmse 
   actual = subset_test_label
   predicted = predictions_matrix_xgb
   performance = RMSE(actual, predicted)
@@ -589,17 +689,11 @@ for (i in 1:iterations){
   print(c(i,iteration_time))
 }
 ```
+<br>
 
-## Auswertung der Ergebnisse
-Bennenung der Results Matrix & Berechnung des RMSE
+# Auswertung der Ergebnisse
+Für die weitere Bearbeitung wird ein Dataframe für die Resultate erstellt, um die Ergebnisse besser bearbeiten zu können. Außerdem werden die Spalten mit dem korrespondierenden Namen versehen.
 ```{r Calculate the results, eval = FALSE, echo = TRUE, error = FALSE}
-#calculate mean of results (#Needs to be weighted depending on how much the product has been sold)
-mean(results_matrix[1:iterations,1])
-mean(results_matrix[1:iterations,2])
-mean(results_matrix[1:iterations,3])
-mean(results_matrix[1:iterations,4])
-mean(results_matrix[1:iterations,5])
-View(results_matrix)
 #convert matrix to dataframe
 results_df  = as.data.frame(results_matrix[1:iterations,])
 
@@ -611,8 +705,11 @@ names(results_df)[4] <- "Random Forest"
 names(results_df)[5] <- "XGBoost"
 names(results_df)[6] <- "item_id"
 ```
+<br>
 
-Erstellung von Gewichtungsfaktoren
+##  Erstellung von Gewichtungsfaktoren
+Aufgrund der sehr unterschiedlichen Verkaufszählen ist die Aussagekraft der einzelnen RMSE-Werte nicht vergleichbar. So ist der wirtschaftliche Nutzen von einem akkuraten Forecast für ein Produkt, von welchem nur eine geringe Anzahl verkauft wird, geringer als von einem Produkt mit hoher Stückzahl. Deshalb sollen die RMSE-Werte noch anhand der verkauften Stückzahl des jeweiligen Produktes gewichtet werden, um aussagekräftigere Werte für das jeweilige Modell zu erhalten. Für jedes Produkt wird deshalb dessen Anteil an dem Gesamtabsatzes des Stores berechnet. Diese werden dann mit dem RMSE-Werte multipliziert, um den finalen gewichteten Wert zu bekommen.  
+ 
 ```{r weighting of results, eval = FALSE, echo = TRUE, error = FALSE}
 #create weighting factor as some products are sold a lot more than others
 dataset <- dataset %>%
@@ -641,6 +738,7 @@ sum(weighted_factors_df$dataset.weighted_sales_percentage)
 #add weighting factors to results
 results_df$weighting_factor = weighted_factors_df[1:iterations,]$dataset.weighted_sales_percentage
 ```
+<br>
 
 Anwendung der Gewichtungsfaktoren
 ```{r calculating with weighting of results, eval = FALSE, echo = TRUE, error = FALSE}
@@ -658,10 +756,11 @@ Autoarima_result = sum(results_df$Autoarima_weighted)
 Random_Forest_result = sum(results_df$`Random Forest_weighted`) 
 XGBoost_result = sum(results_df$XGBoost_weighted)
 ```
+<br>
 
-zur besseren Vergleichbarkeit werden Produkte ausgeschlossen, bei denen ARIMA Fehler aufwies.
+Da ARIMA für 29 der 3049 Produkte einen Fehler ausgibt, werden diese Zeilen für die weitere Analyse ausgeschlossen.
 ```{r exclude arima errors, eval = FALSE, echo = TRUE, error = FALSE}
-# Calculate without ARIMA errors
+#calculate without ARIMA errors
 results_withoutNA_df = results_df[!(is.na(results_df$Autoarima)),]
 
 #calculate the sum of all weighted factors
@@ -671,21 +770,31 @@ Autoarima_result_withoutNA = sum(results_withoutNA_df$Autoarima_weighted, na.rm 
 Random_Forest_result_withoutNA = sum(results_withoutNA_df$`Random Forest_weighted`) 
 XGBoost_result_withoutNA = sum(results_withoutNA_df$XGBoost_weighted) 
 ```
+<br>
 
-#### Weighted Results
-```{r weighted Results , eval = TRUE, echo = TRUE, error = FALSE, results = "hold"}
-Naive_result_withoutNA
-SNaive_result_withoutNA
-Autoarima_result_withoutNA
-Random_Forest_result_withoutNA
-XGBoost_result_withoutNA
+## Ungewichtete und gewichtete Ergebnisse
+Ein erster Vergleich der Resultate zeigt, dass der Wert der gewichteten Resultate deutlich höher liegt als bei den ungewichteten Resultaten. Dies ist sehr gut nachvollziehbar, da der RMSE für Produkte mit höheren Stückzahlen, welche ja stärker gewichtet werden, ansteigt. Außerdem verändert sich die Reihenfolge der erfolgreichsten Ansätze. So repräsentierte der Arima-Ansatz bei den ungewichteten Resultaten noch den erfolgreichsten Ansatz, wohingegen der Random Forest bei den gewichteten Resultaten das beste Ergebnis erzielt.  
+Hinzuzufügen ist, dass der Arima Ansatz gerade bei größeren Werten am häufigsten keine Vorhersage ausgeben kann, weshalb der Random Forest-Ansatz nicht nur minimal bessere Ergebnisse aufweist, sondern auch auf alle Produkte anwendbar ist.  
+Der XGBoost-Ansatz hat sich am deutlichsten durch die Gewichtung verschlechtert. Dies ist auf die sehr schlechte Performance bei Produkten mit hoher Stückzahl zurückzuführen, welche das Gesamtergebnis durch die stärkere Gewichtung deutlich negativ beeinflusst.  
+Zwar zeigen die Naive- und Snaive-Ansätze die schlechteste Performance aller Ansätze. Nichtsdestotrotz muss hinzugefügt werden, dass diese trotz ihrer simplen Natur nicht deutlich schlechtere Resultate erzielen. 
+
+```{r results , eval = TRUE, echo = TRUE, error = FALSE, results = "hold"}
+
+Ansatz = c("Naive", "SNaive", "Auto ARIMA", "Random Forrest", "XGBoost")
+`Ungewichtete Ergebnisse` = c(mean(results_withoutNA_df$Naive),
+                              mean(results_withoutNA_df$SNaive),
+                              mean(results_withoutNA_df$Autoarima),
+                              mean(results_withoutNA_df$`Random Forest`),
+                              mean(results_withoutNA_df$XGBoost))
+`Gewichtete Ergebnisse` = c(Naive_result_withoutNA,
+                            SNaive_result_withoutNA,
+                            Autoarima_result_withoutNA,
+                            Random_Forest_result_withoutNA,
+                            XGBoost_result_withoutNA)
+finalresults = data.frame(Ansatz, `Ungewichtete Ergebnisse`, `Gewichtete Ergebnisse`)
+knitr::kable(finalresults, digits = 2)
 ```
 
-#### Unweighted Results
-```{r ###, eval = TRUE, echo = TRUE, error = FALSE, results = "hold"}
-mean(results_withoutNA_df$Naive)
-mean(results_withoutNA_df$SNaive)
-mean(results_withoutNA_df$Autoarima)
-mean(results_withoutNA_df$`Random Forest`)
-mean(results_withoutNA_df$XGBoost)
-```
+# Fazit
+Abschliessend war es für uns wichtig, zu verstehen, was unsere Modellierungen und Vorhersagen in der Praxis bedeuten. Der einfache, naive Ansatz ist weniger gut geeignet, um die Absätze vorherzusagen. Wie eingangs in der Tableau gezeigt, unterscheiden sich die Absätze sehr stark nach Wochentag, weshalb der Vortag kein guter Indikator ist. SNAIVE nimmt die Daten der Vorwoche. Daher ist dieser Ansatz durchaus überraschend performant. Die belastbarsten Ergebnisse liefert der Random Forest-Ansatz. Dieser ist besonders gut geeignet, um die realen Absätze mittelfristig vorherzusagen.  
+Diese relativ akkurate Vorhersage über längere Zeiträume (28 Tage sind im Retail-Bereich durchaus beachtlich) erleichtert die Lagerbestandsplanung für Walmart deutlich. In der Praxis werden so in Zukunft weniger Produkte unnötigerweise auf Lager gehalten. Es findet also weniger unnötige Kapitalbindung statt. Vor Allem im Bereich "Food" kann durch eine genauere Steuerung des Einkaufsvolumens das unnötige Ablaufen von Produkten verhindert werden. Somit ist unsere Vorhersage für Walmart sowohl ökonomisch, als auch ökologisch sehr wertvoll.

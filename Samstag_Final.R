@@ -38,7 +38,7 @@ sell_prices.csv <- fread("sell_prices.csv", stringsAsFactors = TRUE)
 #create simple (for naive, snaive and arima) 
 #do some data wrangling
 simple_dataset <- sales_train_validation.csv %>% 
-  #eliminate valitrainion to save memory
+  #eliminate validation to save memory
   mutate(id = gsub("_validation", "", id)) %>%
   select(-item_id) %>% 
   select(-dept_id) %>%
@@ -190,7 +190,7 @@ dataset = select(dataset, -id)
 #clear memory again
 free()
 
-#convert item id of the dataset into numeric format (starts at 1438)
+#convert item id of the dataset into numeric format
 dataset$item_id = as.integer(dataset$item_id)
 
 #create training for the more complex dataset
@@ -205,7 +205,7 @@ intermediate_test_dataset_1 = filter(dataset, d >= 1800 & d <= 1885)
 intermediate_test_dataset_2 = filter(dataset, d == 1886)
 test_dataset = filter(dataset, d > 1886)
 
-#clear memory and maybe remove dataset
+#clear memory
 free()
 
 #remove demand and all the lag metrics from the testset as they would not be available with the exception of the first day (1886)
@@ -232,7 +232,7 @@ N_cpu = detectCores()
 computing_start_time <- Sys.time()
 
 i=1
-#loop through the dataä+
+#loop through the data
 for (i in 1:iterations){
   #########################################################################################
   ### Data Preparation for simple approaches
