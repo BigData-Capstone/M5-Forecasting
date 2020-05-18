@@ -354,7 +354,7 @@ Die simplen Forecasting Ansätze folgen jeweils einer ähnlichen Struktur und be
 <br>
 
 ### ML-Forecasting Ansätze: Random Forest und XGBoost
-Für die ML-Forecasting Ansätze wird auf die Ansätze Random Forest und XGBoost zurückgegriffen. Für die Implementierung des Random Forests wird das Ranger-Paket aufgrund seiner schnelleren Berechnung verwendet, was gerade bei mehr als 3000 Produkten enorm wichtig ist. Für XGBoost wurde außerdem noch mit Hilfe von Grid-Search versucht, optimale Hyper-Parameter zu finden (Siehe XGboost_grid_Search_Optimization.R - [Link zum R Skript](XGboost_grid_Search_Optimization.R)). 
+Für die ML-Forecasting Ansätze wird auf die Ansätze Random Forest und XGBoost zurückgegriffen. Für die Implementierung des Random Forests wird das Ranger-Paket aufgrund seiner schnelleren Berechnung verwendet, was gerade bei mehr als 3000 Produkten enorm wichtig ist. Für XGBoost wurde außerdem noch mit Hilfe von Grid-Search versucht, optimale Hyper-Parameter zu finden (Siehe R-Script/XGBoost_Grid-search_loop.R - [Link zum R Skript](R-Script/XGBoost_Grid-Search_loop.R)). 
 
 Für jede Iteration wird zunächst das jeweilige Produkt aus dem Item-Id-Dataframe ausgewählt und basierend auf diesem die jeweils relevanten Daten für das Training gefiltert. Für Random Forest wird außerdem noch die Sell-Price Spalte entfernt, da in dieser sporadische NA-Werte auftreten. Für die XGBoost-Implementierung werden die Daten in das XGBoost Format umgewandelt. Außerdem werden dem XGBoost-Model zusätzlich noch die vorher bestimmten Hyper-Parameter bestimmt.  
 
