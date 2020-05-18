@@ -666,6 +666,7 @@ mean(results_withoutNA_df$XGBoost)
 #####################################################################
 library(rmarkdown)
 library(knitr)
+# load("results/.RData")
 render("main.Rmd",
        output_format = "html_document",
        output_file = "Gruppe-3.html")

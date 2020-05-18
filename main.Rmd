@@ -21,7 +21,7 @@ text-align: justify}
 
 Walmart ist der grösste Einzelhändler der Welt. In ca. 11.500 Stores in 27 Ländern kaufen jede Woche über 250 Mio. Kunden Lebensmittel und Waren aller Art ein. Walmart betreibt in erster Linie sogenannte Superstores, die sich durch eine sehr grosse Produktpalette auszeichnen. Gerade durch die extreme Produktvielfalt sind die Lagerkosten für Walmart enorm. Daher ist das Unternehmen besonders daran interessiert, so wenig Produkte wie möglich, aber trotzdem so viele wie nötig auf Vorrat zu halten.  
 
-Daher hat Walmart die M5 Accuracy Challenge auf Kaggle gestartet. Ziel der Challenge ist die möglichst genaue Vorhersage von Absatzzahlen. Im Zuge dessen sollen die Stückzahlen für Produkte aus den drei Produktkategorien Food, Household und Hobby in 10 Stores in 3 US-Staaten für 28 Tage, also 4 Wochen, vorhergesagt werden. Die Besonderheit der aktuellen Challenge im Vergleich zu früheren Challenges ist, dass mit Intermittenz  (einschliesslich 0 Werte) umgegangen werden muss. Der Datensatz enthält also Produkte mit sporadischer Nachfrage, deren Absatzvorhersage wesentlich komplexer ist, als die Vorhersage für Produkte, die regelmässiger abgesetzt werden. Die Kaggle-Challenge ist mit 50.000 USD Preisgeld dotiert.
+Aus diesem Grund hat Walmart die M5 Accuracy Challenge auf Kaggle gestartet. Ziel der Challenge ist die möglichst genaue Vorhersage von Absatzzahlen. Im Zuge dessen sollen die Stückzahlen für Produkte aus den drei Produktkategorien Food, Household und Hobby in 10 Stores in 3 US-Staaten für 28 Tage, also 4 Wochen, vorhergesagt werden. Die Besonderheit der aktuellen Challenge im Vergleich zu früheren Challenges ist, dass mit Intermittenz  (einschliesslich 0 Werte) umgegangen werden muss. Der Datensatz enthält also Produkte mit sporadischer Nachfrage, deren Absatzvorhersage wesentlich komplexer ist, als die Vorhersage für Produkte, die regelmässiger abgesetzt werden. Die Kaggle-Challenge ist mit 50.000 USD Preisgeld dotiert.
 
 
 [Link zur Challenge auf Kaggle](https://www.kaggle.com/c/m5-forecasting-accuracy)
@@ -96,7 +96,7 @@ Im Kalender sind noch weitere Features enthalten, auf welche wir nicht weiter ei
 <br>
 
 ## Visualisierung des Datensatzes
-Zur Visualisierung des Datensatzes haben wir Tableau verwendet. Hier war es uns besonders wichtig, herauszufinden, welche Trends und Schwankungen die Absätze aufweisen. Für das Preprocessing des Datensatzes für Tableau haben wir uns an folgendem [Kaggle Notebook](https://www.kaggle.com/mayer79/m5-forecast-tidy-r-catboost) orientiert.
+Zur Visualisierung des Datensatzes haben wir Tableau verwendet. Hier war es uns besonders wichtig, herauszufinden, welche Trends und Schwankungen die Absätze aufweisen. Für das Preprocessing des Datensatzes, welches Grundlage für die Visualisierung in Tableau war, haben wir uns an folgendem [Kaggle Notebook](https://www.kaggle.com/mayer79/m5-forecast-tidy-r-catboost) orientiert.
 <br>
 
 ### Analyse der Stückzahlen des gesamten Datensatzes
@@ -171,7 +171,7 @@ test_simple = simple_dataset[index,]
 ## Erstellung der komplexen Datensets für ML Ansätze
 Für die komplexeren Ansätze (XGBoost und Random Forest) sollen zusätzlich noch Features erstellt werden, um bessere Forecast-Ergebnisse zu erzielen. Damit diese auch berechnet werden können wird der train_index schon bei Tag 1350 gesetzt, um eine korrekte Berechnung aller Features gewährleisten zu können. 
 
-Diese Features umfassen die Lags der Tage 1-7 sowie die einzelnen Lags von 14, 21 und 28 Tagen. Zusätzlich haben wir den Durchschnitt der vergangenen 3 und 7 Tage errechnet. Abschließend haben wir noch einige weitere Features in Bezug auf vergangenen Absatz des Produktes. Gerade letztere sollen als Indikation für mögliche Grenzen in Bezug auf die Vorhersage gelten. Falls ein Produkt  in der Vergangenheit nicht mehr als 5-mal an einem Tag verkauft worden ist, sollte die Wahrscheinlichkeit eines vorhergesagten Absatz von mehr als 5 Verkäufen an einem Tag gering sein. 
+Diese Features umfassen die Lags der Tage 1-7 sowie die einzelnen Lags von 14, 21 und 28 Tagen. Dabei handelt es sich zum einen um häufig verwendete Lags in Time Series Forecast Ansätzen, und zum anderen hat die Visualisierung des Datensatzes eine starke wöchentliche Saisonalität gezeigt. Zusätzlich haben wir den Durchschnitt der vergangenen 3 und 7 Tage errechnet. Abschließend haben wir noch einige weitere Features in Bezug auf vergangenen Absatz des Produktes. Gerade letztere sollen als Indikation für mögliche Grenzen in Bezug auf die Vorhersage gelten. Falls ein Produkt  in der Vergangenheit nicht mehr als 5-mal an einem Tag verkauft worden ist, sollte die Wahrscheinlichkeit eines vorhergesagten Absatz von mehr als 5 Verkäufen an einem Tag gering sein. 
 
 Nach dem Filtern auf den Store CA_3 werden die nun irrelevanten Variablen store- und state-id entfernt, da nur noch ein Store betrachtet wird. Außerdem wurden die Variablen der jeweiligen Kategorien und Departements aufgrund keiner Verbesserung der Vorhersage entfernt.  
 
